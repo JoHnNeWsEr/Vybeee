@@ -16,3 +16,7 @@ Vybeee is an offline-first Android music player. Your music stays on your device
 - Empty-library and permission-friendly states
 
 Advanced features such as full playlist management, folders, sleep timer, equalizer, crossfade/gapless playback, onboarding polish, and richer artwork handling remain planned phases so the core stays stable.
+
+
+## Release signing
+GitHub Actions builds a release APK using a persistent private keystore stored in GitHub Actions secrets. The keystore itself is never committed to the repository.

@@ -1,0 +1,16 @@
+VYBEEE STABLE SIGNING SETUP
+
+This project is now configured to build a signed release APK so future APKs can update the installed app instead of conflicting.
+
+ONE-TIME SETUP:
+1. Keep the supplied vybeee-release.jks file private. Never commit it to the Git repository.
+2. In GitHub: Vybeee -> Settings -> Secrets and variables -> Actions -> New repository secret.
+3. Add these four secrets:
+   VYBEEE_KEYSTORE_BASE64 = the entire single-line base64 text from vybeee-release.jks.b64
+   VYBEEE_KEYSTORE_PASSWORD = the password supplied with the signing kit
+   VYBEEE_KEY_ALIAS = vybeee
+   VYBEEE_KEY_PASSWORD = the password supplied with the signing kit
+4. After the first stable release APK is installed, keep the keystore and all four values safe permanently. Losing them means future updates cannot be signed as the same app.
+
+IMPORTANT:
+The currently installed Vybeee 1.1.0 APK was built with GitHub's temporary debug key. It cannot be upgraded by this new permanent signing key. Uninstall the current Vybeee once before installing the first stable-signed APK. After that, future releases will update normally.

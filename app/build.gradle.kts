@@ -12,11 +12,33 @@ android {
         applicationId = "com.vybeee.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 100
-        versionName = "1.0.0"
+        versionCode = 110
+        versionName = "1.1.0"
     }
 
-    buildTypes { release { isMinifyEnabled = false } }
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("VYBEEE_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("VYBEEE_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("VYBEEE_KEY_ALIAS")
+            val keyPassword = System.getenv("VYBEEE_KEY_PASSWORD")
+
+            if (!keystorePath.isNullOrBlank() && !keystorePassword.isNullOrBlank() &&
+                !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
