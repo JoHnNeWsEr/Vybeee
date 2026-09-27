@@ -34,9 +34,14 @@ jobs:
           # Normalize any accidental whitespace introduced while pasting the secret.
           printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/vybeee-release.jks"
           echo "Verifying decoded signing keystore..."
-          keytool -list -keystore "$RUNNER_TEMP/vybeee-release.jks" \
+          echo "Decoded keystore size: $(wc -c < "$RUNNER_TEMP/vybeee-release.jks") bytes"
+          if ! keytool -list -keystore "$RUNNER_TEMP/vybeee-release.jks" \
             -storepass "$VYBEEE_KEYSTORE_PASSWORD" \
-            -alias "$VYBEEE_KEY_ALIAS" > /dev/null
+            -alias "$VYBEEE_KEY_ALIAS"; then
+            echo "ERROR: The GitHub secret decoded, but keytool could not open the keystore."
+            echo "The original local keystore should NOT be regenerated."
+            exit 1
+          fi
           echo "Signing keystore verified."
 
       - name: Build signed release APK
