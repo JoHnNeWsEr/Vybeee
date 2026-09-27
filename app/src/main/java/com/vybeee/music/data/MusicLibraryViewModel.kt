@@ -7,8 +7,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class MusicLibraryViewModel(application: Application) : AndroidViewModel(application) {
+    private val store = LibraryStore(application)
     private val _songs = MutableStateFlow<List<AudioSong>>(emptyList())
     val songs = _songs.asStateFlow()
+    private val _query = MutableStateFlow("")
+    val query = _query.asStateFlow()
+    private val _favorites = MutableStateFlow(store.favorites())
+    val favorites = _favorites.asStateFlow()
+    private val _recent = MutableStateFlow(store.recentlyPlayed())
+    val recent = _recent.asStateFlow()
+    private val _nowPlaying = MutableStateFlow<AudioSong?>(null)
+    val nowPlaying = _nowPlaying.asStateFlow()
 
     init { refresh() }
 
@@ -30,4 +39,13 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
         }
         _songs.value = result
     }
+
+    fun setQuery(value: String) { _query.value = value }
+    fun filteredSongs(source: List<AudioSong>): List<AudioSong> {
+        val q = _query.value.trim().lowercase()
+        if (q.isBlank()) return source
+        return source.filter { it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) || it.album.lowercase().contains(q) }
+    }
+    fun toggleFavorite(id: Long) { store.toggleFavorite(id); _favorites.value = store.favorites() }
+    fun recordPlayed(id: Long) { store.recordPlayed(id); _recent.value = store.recentlyPlayed(); _nowPlaying.value = _songs.value.find { it.id == id } }
 }

@@ -9,11 +9,18 @@ class VybeeePlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this).build()
-        mediaSession = MediaSession.Builder(this, player).build()
+        val player = ExoPlayer.Builder(this).build().apply {
+            setHandleAudioBecomingNoisy(true)
+        }
+        mediaSession = MediaSession.Builder(this, player).setCallback(object : MediaSession.Callback {}).build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
+
+    override fun onTaskRemoved(rootIntent: android.content.Intent?) {
+        mediaSession?.player?.let { if (!it.playWhenReady) stopSelf() }
+        super.onTaskRemoved(rootIntent)
+    }
 
     override fun onDestroy() {
         mediaSession?.player?.release()
