@@ -27,9 +27,17 @@ jobs:
       - name: Prepare release signing key
         env:
           KEYSTORE_B64: ${{ secrets.VYBEEE_KEYSTORE_BASE64 }}
+          VYBEEE_KEYSTORE_PASSWORD: ${{ secrets.VYBEEE_KEYSTORE_PASSWORD }}
+          VYBEEE_KEY_ALIAS: ${{ secrets.VYBEEE_KEY_ALIAS }}
         run: |
           test -n "$KEYSTORE_B64" || { echo "Missing VYBEEE_KEYSTORE_BASE64 GitHub secret"; exit 1; }
-          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/vybeee-release.jks"
+          # Normalize any accidental whitespace introduced while pasting the secret.
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/vybeee-release.jks"
+          echo "Verifying decoded signing keystore..."
+          keytool -list -keystore "$RUNNER_TEMP/vybeee-release.jks" \
+            -storepass "$VYBEEE_KEYSTORE_PASSWORD" \
+            -alias "$VYBEEE_KEY_ALIAS" > /dev/null
+          echo "Signing keystore verified."
 
       - name: Build signed release APK
         env:
