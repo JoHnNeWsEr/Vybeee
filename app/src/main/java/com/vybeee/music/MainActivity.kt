@@ -175,6 +175,8 @@ private fun VybeeeApp(
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
     var showFullPlayer by remember { mutableStateOf(false) }
+    var selectedAlbum by remember { mutableStateOf<String?>(null) }
+    var selectedArtist by remember { mutableStateOf<String?>(null) }
     var sleepTimerEnd by rememberSaveable { mutableStateOf<Long?>(null) }
     var showSleepTimer by rememberSaveable { mutableStateOf(false) }
     var showClearQueue by rememberSaveable { mutableStateOf(false) }
@@ -275,11 +277,33 @@ private fun VybeeeApp(
                 )
             } else {
                 BrandHeader()
-                when (selected) {
+                if (selectedAlbum != null) {
+                    val album = selectedAlbum!!
+                    val tracks = songs.filter { it.album == album }
+                    AlbumDetailScreen(
+                        album = album,
+                        tracks = tracks,
+                        favorites = favorites,
+                        vm = vm,
+                        controller = controller,
+                        onBack = { selectedAlbum = null }
+                    )
+                } else if (selectedArtist != null) {
+                    val artist = selectedArtist!!
+                    val tracks = songs.filter { it.artist == artist }
+                    ArtistDetailScreen(
+                        artist = artist,
+                        tracks = tracks,
+                        favorites = favorites,
+                        vm = vm,
+                        controller = controller,
+                        onBack = { selectedArtist = null }
+                    )
+                } else when (selected) {
                     Tab.HOME -> HomeScreen(songs, favorites, vm, controller) { selected = it }
                     Tab.SONGS -> SongsScreen(filtered, query, vm, controller, favorites)
-                    Tab.ALBUMS -> AlbumsScreen(songs, controller, vm)
-                    Tab.ARTISTS -> ArtistsScreen(songs, controller, vm)
+                    Tab.ALBUMS -> AlbumsScreen(songs, controller, vm) { selectedAlbum = it }
+                    Tab.ARTISTS -> ArtistsScreen(songs, controller, vm) { selectedArtist = it }
                     Tab.FAVORITES -> SongsScreen(
                         songs.filter { it.id in favorites },
                         query,
@@ -777,24 +801,92 @@ private fun SongRow(
 }
 
 @Composable
-private fun AlbumsScreen(songs: List<AudioSong>, controller: MediaController?, vm: MusicLibraryViewModel) {
+private fun AlbumsScreen(
+    songs: List<AudioSong>,
+    controller: MediaController?,
+    vm: MusicLibraryViewModel,
+    onOpenAlbum: (String) -> Unit
+) {
     val albums = songs.groupBy { it.album }.toList().sortedBy { it.first.lowercase() }
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text("Albums", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Browse your local music by album",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(12.dp))
-        if (albums.isEmpty()) Text("No albums yet.")
-        else LazyColumn {
-            items(albums, key = { it.first }) { (album, tracks) ->
-                Card(
-                    Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable {
-                        playSong(controller, tracks.first(), tracks)
-                        vm.recordPlayed(tracks.first().id)
+        if (albums.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No albums yet.")
+            }
+        } else {
+            LazyColumn {
+                items(albums, key = { it.first }) { (album, tracks) ->
+                    Card(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clickable { onOpenAlbum(album) }
+                    ) {
+                        ListItem(
+                            headlineContent = { Text(album, maxLines = 1) },
+                            supportingContent = { Text("${tracks.first().artist} • ${tracks.size} songs") },
+                            leadingContent = {
+                                SongArtwork(song = tracks.first(), size = 64.dp)
+                            },
+                            trailingContent = {
+                                IconButton(onClick = {
+                                    playSong(controller, tracks.first(), tracks)
+                                    vm.recordPlayed(tracks.first().id)
+                                }) {
+                                    Icon(Icons.Default.PlayArrow, "Play album")
+                                }
+                            }
+                        )
                     }
-                ) {
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistsScreen(
+    songs: List<AudioSong>,
+    controller: MediaController?,
+    vm: MusicLibraryViewModel,
+    onOpenArtist: (String) -> Unit
+) {
+    val artists = songs.groupBy { it.artist }.toList().sortedBy { it.first.lowercase() }
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text("Artists", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Browse your local music by artist",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+        if (artists.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No artists yet.")
+            }
+        } else {
+            LazyColumn {
+                items(artists, key = { it.first }) { (artist, tracks) ->
                     ListItem(
-                        headlineContent = { Text(album) },
-                        supportingContent = { Text("${tracks.first().artist} • ${tracks.size} songs") },
-                        leadingContent = { Icon(Icons.Default.Album, null) }
+                        modifier = Modifier.clickable { onOpenArtist(artist) },
+                        headlineContent = { Text(artist, maxLines = 1) },
+                        supportingContent = { Text("${tracks.size} songs") },
+                        leadingContent = {
+                            SongArtwork(song = tracks.first(), size = 64.dp)
+                        },
+                        trailingContent = {
+                            IconButton(onClick = {
+                                playSong(controller, tracks.first(), tracks)
+                                vm.recordPlayed(tracks.first().id)
+                            }) {
+                                Icon(Icons.Default.PlayArrow, "Play artist")
+                            }
+                        }
                     )
                 }
             }
@@ -803,23 +895,158 @@ private fun AlbumsScreen(songs: List<AudioSong>, controller: MediaController?, v
 }
 
 @Composable
-private fun ArtistsScreen(songs: List<AudioSong>, controller: MediaController?, vm: MusicLibraryViewModel) {
-    val artists = songs.groupBy { it.artist }.toList().sortedBy { it.first.lowercase() }
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Artists", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
-        if (artists.isEmpty()) Text("No artists yet.")
-        else LazyColumn {
-            items(artists, key = { it.first }) { (artist, tracks) ->
-                ListItem(
-                    modifier = Modifier.clickable {
-                        playSong(controller, tracks.first(), tracks)
-                        vm.recordPlayed(tracks.first().id)
-                    },
-                    headlineContent = { Text(artist) },
-                    supportingContent = { Text("${tracks.size} songs") },
-                    leadingContent = { Icon(Icons.Default.Person, null) }
-                )
+private fun AlbumDetailScreen(
+    album: String,
+    tracks: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?,
+    onBack: () -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+            Text("Album", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    if (tracks.isNotEmpty()) {
+                        SongArtwork(song = tracks.first(), size = 190.dp, cornerRadius = 24.dp)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(album, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    if (tracks.isNotEmpty()) {
+                        Text(
+                            "${tracks.first().artist} • ${tracks.size} songs",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            enabled = tracks.isNotEmpty(),
+                            onClick = {
+                                if (tracks.isNotEmpty()) {
+                                    playSong(controller, tracks.first(), tracks)
+                                    vm.recordPlayed(tracks.first().id)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Play")
+                        }
+                        OutlinedButton(
+                            enabled = tracks.isNotEmpty(),
+                            onClick = {
+                                if (tracks.isNotEmpty()) {
+                                    val shuffled = tracks.shuffled()
+                                    playSong(controller, shuffled.first(), shuffled)
+                                    vm.recordPlayed(shuffled.first().id)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Shuffle, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Shuffle")
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+            items(tracks, key = { it.id }) { song ->
+                SongRow(
+                    song = song,
+                    favorite = favorites.contains(song.id),
+                    onFavorite = { vm.toggleFavorite(song.id) },
+                    playCount = vm.playCount(song.id)
+                ) {
+                    playSong(controller, song, tracks)
+                    vm.recordPlayed(song.id)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistDetailScreen(
+    artist: String,
+    tracks: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?,
+    onBack: () -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+            Text("Artist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    if (tracks.isNotEmpty()) {
+                        SongArtwork(song = tracks.first(), size = 190.dp, cornerRadius = 95.dp)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(artist, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text(
+                        "${tracks.size} songs",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            enabled = tracks.isNotEmpty(),
+                            onClick = {
+                                if (tracks.isNotEmpty()) {
+                                    playSong(controller, tracks.first(), tracks)
+                                    vm.recordPlayed(tracks.first().id)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Play")
+                        }
+                        OutlinedButton(
+                            enabled = tracks.isNotEmpty(),
+                            onClick = {
+                                if (tracks.isNotEmpty()) {
+                                    val shuffled = tracks.shuffled()
+                                    playSong(controller, shuffled.first(), shuffled)
+                                    vm.recordPlayed(shuffled.first().id)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Shuffle, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Shuffle")
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+            items(tracks, key = { it.id }) { song ->
+                SongRow(
+                    song = song,
+                    favorite = favorites.contains(song.id),
+                    onFavorite = { vm.toggleFavorite(song.id) },
+                    playCount = vm.playCount(song.id)
+                ) {
+                    playSong(controller, song, tracks)
+                    vm.recordPlayed(song.id)
+                }
             }
         }
     }
