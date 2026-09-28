@@ -6,10 +6,12 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Size
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.CancellationSignal
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +36,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -685,6 +689,63 @@ private fun sortLabel(mode: SongSort): String = when (mode) {
     SongSort.MOST_PLAYED -> "Most played"
 }
 
+
+@Composable
+private fun SongArtwork(
+    song: AudioSong,
+    size: androidx.compose.ui.unit.Dp = 52.dp
+) {
+    val context = LocalContext.current
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = song.id) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val uri = Uri.parse(song.uri)
+                if (Build.VERSION.SDK_INT >= 29) {
+                    context.contentResolver.loadThumbnail(
+                        uri,
+                        Size(256, 256),
+                        CancellationSignal()
+                    )
+                } else {
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(context, uri)
+                        retriever.embeddedPicture?.let {
+                            BitmapFactory.decodeByteArray(it, 0, it.size)
+                        }
+                    } finally {
+                        retriever.release()
+                    }
+                }
+            }.getOrNull()
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = "${song.title} artwork",
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.size(size * 0.55f)
+            )
+        }
+    }
+}
+
 @Composable
 private fun SongRow(
     song: AudioSong,
@@ -703,7 +764,7 @@ private fun SongRow(
                 maxLines = 1
             )
         },
-        leadingContent = { Icon(Icons.Default.MusicNote, null) },
+        leadingContent = { SongArtwork(song = song, size = 52.dp) },
         trailingContent = {
             IconButton(onClick = onFavorite) {
                 Icon(
