@@ -142,6 +142,7 @@ private enum class Tab(val label: String, val icon: androidx.compose.ui.graphics
     FAVORITES("Favorites", Icons.Default.Favorite),
     PLAYLISTS("Playlists", Icons.Default.QueueMusic),
     FOLDERS("Folders", Icons.Default.Folder),
+    GENRES("Genres", Icons.Default.MusicNote),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -282,6 +283,7 @@ private fun VybeeeApp(
                     Tab.PLAYLISTS -> PlaylistsScreen(songs, vm, controller)
                     Tab.MORE -> MoreScreen { selected = it }
                     Tab.FOLDERS -> FoldersScreen(songs, vm, controller)
+                    Tab.GENRES -> GenresScreen(songs, controller, vm)
                     Tab.SETTINGS -> SettingsScreen(
                         vm,
                         themeMode,
@@ -769,12 +771,153 @@ private fun MoreScreen(go: (Tab) -> Unit) {
             leadingContent = { Icon(Icons.Default.Folder, null) }
         )
         ListItem(
+            modifier = Modifier.clickable { go(Tab.GENRES) },
+            headlineContent = { Text("Genres") },
+            supportingContent = { Text("Browse local music by genre") },
+            leadingContent = { Icon(Icons.Default.MusicNote, null) }
+        )
+        ListItem(
             modifier = Modifier.clickable { go(Tab.SETTINGS) },
             headlineContent = { Text("Settings") },
             supportingContent = { Text("Library, appearance, and privacy") },
             leadingContent = { Icon(Icons.Default.Settings, null) }
         )
     }
+}
+
+
+private data class GenreGroup(
+    val name: String,
+    val songs: List<AudioSong>
+)
+
+@Composable
+private fun GenresScreen(
+    songs: List<AudioSong>,
+    controller: MediaController?,
+    vm: MusicLibraryViewModel
+) {
+    val context = LocalContext.current
+    var groups by remember { mutableStateOf<List<GenreGroup>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(songs) {
+        loading = true
+        groups = withContext(Dispatchers.IO) {
+            loadGenreGroups(context, songs)
+        }
+        loading = false
+    }
+
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
+        Text("Genres", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Browse your local music by genre",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+
+        when {
+            loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            groups.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No genre information found in your local music.",
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            else -> {
+                LazyColumn {
+                    items(groups, key = { it.name }) { group ->
+                        Card(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp)
+                                .clickable {
+                                    val first = group.songs.firstOrNull() ?: return@clickable
+                                    playSong(controller, first, group.songs)
+                                    vm.recordPlayed(first.id)
+                                }
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(group.name) },
+                                supportingContent = {
+                                    Text("${group.songs.size} ${if (group.songs.size == 1) "song" else "songs"}")
+                                },
+                                leadingContent = {
+                                    Icon(Icons.Default.MusicNote, null)
+                                },
+                                trailingContent = {
+                                    Icon(Icons.Default.PlayArrow, "Play ${group.name}")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun loadGenreGroups(
+    context: android.content.Context,
+    songs: List<AudioSong>
+): List<GenreGroup> {
+    if (songs.isEmpty()) return emptyList()
+
+    val songsById = songs.associateBy { it.id }
+    val resolver = context.contentResolver
+    val groups = linkedMapOf<String, MutableList<AudioSong>>()
+    val genresUri = MediaStore.Audio.Genres.getContentUri("external")
+
+    resolver.query(
+        genresUri,
+        arrayOf(MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME),
+        null,
+        null,
+        "${MediaStore.Audio.Genres.NAME} COLLATE NOCASE ASC"
+    )?.use { genreCursor ->
+        val idCol = genreCursor.getColumnIndex(MediaStore.Audio.Genres._ID)
+        val nameCol = genreCursor.getColumnIndex(MediaStore.Audio.Genres.NAME)
+
+        if (idCol >= 0 && nameCol >= 0) {
+            while (genreCursor.moveToNext()) {
+                val genreId = genreCursor.getLong(idCol)
+                val name = genreCursor.getString(nameCol).orEmpty().trim()
+                if (name.isBlank()) continue
+
+                val membersUri = MediaStore.Audio.Genres.Members.getContentUri("external", genreId)
+                resolver.query(
+                    membersUri,
+                    arrayOf("audio_id"),
+                    null,
+                    null,
+                    null
+                )?.use { memberCursor ->
+                    val audioIdCol = memberCursor.getColumnIndex("audio_id")
+                    if (audioIdCol >= 0) {
+                        while (memberCursor.moveToNext()) {
+                            val audioId = memberCursor.getLong(audioIdCol)
+                            songsById[audioId]?.let { song ->
+                                groups.getOrPut(name) { mutableListOf() }.add(song)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return groups.map { (name, tracks) ->
+        GenreGroup(name, tracks.distinctBy { it.id })
+    }.filter { it.songs.isNotEmpty() }
+        .sortedBy { it.name.lowercase() }
 }
 
 @Composable
