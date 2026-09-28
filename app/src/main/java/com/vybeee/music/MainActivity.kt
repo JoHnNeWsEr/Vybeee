@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -64,9 +65,19 @@ class MainActivity : ComponentActivity() {
             SessionToken(this, ComponentName(this, VybeeePlaybackService::class.java))
         ).buildAsync()
 
+        val prefs = getSharedPreferences("vybeee_settings", MODE_PRIVATE)
         setContent {
-            VybeeeTheme {
-                VybeeeApp(controllerFuture, audioPermissionGranted)
+            var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
+            VybeeeTheme(themeMode = themeMode) {
+                VybeeeApp(
+                    controllerFuture = controllerFuture,
+                    audioPermissionGranted = audioPermissionGranted,
+                    themeMode = themeMode,
+                    onThemeModeChange = { mode ->
+                        themeMode = mode
+                        prefs.edit().putString("theme_mode", mode).apply()
+                    }
+                )
             }
         }
 
@@ -111,6 +122,8 @@ private data class PlayerUiState(
 private fun VybeeeApp(
     controllerFuture: ListenableFuture<MediaController>?,
     audioPermissionGranted: Boolean,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit,
     vm: MusicLibraryViewModel = viewModel()
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
@@ -223,7 +236,7 @@ private fun VybeeeApp(
                     Tab.PLAYLISTS -> PlaylistsScreen(songs, vm, controller)
                     Tab.MORE -> MoreScreen { selected = it }
                     Tab.FOLDERS -> FoldersScreen(songs, vm, controller)
-                    Tab.SETTINGS -> SettingsScreen(vm)
+                    Tab.SETTINGS -> SettingsScreen(vm, themeMode, onThemeModeChange)
                 }
                 if (nowPlaying != null) {
                     MiniPlayer(nowPlaying!!, controller) { showFullPlayer = true }
@@ -857,15 +870,47 @@ private fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Un
     )
 }
 
+private fun themeModeLabel(mode: String): String = when (mode) {
+    "light" -> "Light"
+    "dark" -> "Dark"
+    else -> "System"
+}
+
 @Composable
-private fun SettingsScreen(vm: MusicLibraryViewModel) {
+private fun SettingsScreen(
+    vm: MusicLibraryViewModel,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit
+) {
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(18.dp))
         ListItem(
             headlineContent = { Text("Appearance") },
-            supportingContent = { Text("System theme for now") },
-            leadingContent = { Icon(Icons.Default.DarkMode, null) }
+            supportingContent = { Text("${themeModeLabel(themeMode)} theme") },
+            leadingContent = { Icon(Icons.Default.DarkMode, null) },
+            trailingContent = {
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { expanded = true }) {
+                        Text("Change")
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf("system", "light", "dark").forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(themeModeLabel(mode)) },
+                                onClick = {
+                                    onThemeModeChange(mode)
+                                    expanded = false
+                                },
+                                trailingIcon = {
+                                    if (themeMode == mode) Icon(Icons.Default.Check, "Selected")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         )
         ListItem(
             headlineContent = { Text("Library") },
@@ -879,7 +924,7 @@ private fun SettingsScreen(vm: MusicLibraryViewModel) {
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.5.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.6.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

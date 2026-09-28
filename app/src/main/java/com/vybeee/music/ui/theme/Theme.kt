@@ -9,6 +9,11 @@ private val DarkColors = darkColorScheme(primary = Color(0xFFB8A7FF), secondary 
 private val LightColors = lightColorScheme(primary = Color(0xFF6750A4), secondary = Color(0xFF3F6374))
 
 @Composable
-fun VybeeeTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors, content = content)
+fun VybeeeTheme(themeMode: String = "system", content: @Composable () -> Unit) {
+    val dark = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
 }
