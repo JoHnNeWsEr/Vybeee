@@ -77,3 +77,9 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Album and artist detail browsing
 - Album/artist artwork and quick play
 - Play and shuffle controls on detail screens
+
+
+## v1.19.0
+- Added folder search across folder names, song titles, artists, and albums.
+- Added clear-search control and empty-result state for Folders.
+- Updated Home tagline to “Your music. Your vibe.”

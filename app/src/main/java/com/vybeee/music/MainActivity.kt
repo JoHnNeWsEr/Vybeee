@@ -540,7 +540,7 @@ private fun HomeScreen(
     ) {
         item {
             Text("Good evening", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Your music. Your device. Your vibe.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your music. Your vibe.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(22.dp))
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1419,24 +1419,81 @@ private fun loadGenreGroups(
 
 @Composable
 private fun FoldersScreen(songs: List<AudioSong>, vm: MusicLibraryViewModel, controller: MediaController?) {
-    val folders = songs.groupBy { it.folder }.toList().sortedBy { it.first.lowercase() }
+    val folders = remember(songs) {
+        songs.groupBy { it.folder }.toList().sortedBy { it.first.lowercase() }
+    }
+    var query by rememberSaveable { mutableStateOf("") }
+    val filteredFolders = remember(folders, query) {
+        val q = query.trim()
+        if (q.isBlank()) folders else folders.filter { (folder, tracks) ->
+            folder.contains(q, ignoreCase = true) ||
+                tracks.any { song ->
+                    song.title.contains(q, ignoreCase = true) ||
+                        song.artist.contains(q, ignoreCase = true) ||
+                        song.album.contains(q, ignoreCase = true)
+                }
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Folders", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Folders",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            if (query.isNotBlank()) {
+                IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Clear, "Clear folder search")
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, "Search folders") },
+            placeholder = { Text("Search folders, songs, artists, or albums") }
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (query.isBlank()) "Browse your local music by folder"
+            else "${filteredFolders.size} matching ${if (filteredFolders.size == 1) "folder" else "folders"}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(12.dp))
-        if (folders.isEmpty()) Text("No music folders found.")
-        else LazyColumn {
-            items(folders, key = { it.first }) { (folder, tracks) ->
-                Card(
-                    Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable {
-                        playSong(controller, tracks.first(), tracks)
-                        vm.recordPlayed(tracks.first().id)
+
+        when {
+            folders.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No music folders found.")
+                }
+            }
+            filteredFolders.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No matching folders found.")
+                }
+            }
+            else -> LazyColumn {
+                items(filteredFolders, key = { it.first }) { (folder, tracks) ->
+                    Card(
+                        Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable {
+                            playSong(controller, tracks.first(), tracks)
+                            vm.recordPlayed(tracks.first().id)
+                        }
+                    ) {
+                        ListItem(
+                            headlineContent = { Text(folder) },
+                            supportingContent = { Text("${tracks.size} songs") },
+                            leadingContent = { Icon(Icons.Default.Folder, null) }
+                        )
                     }
-                ) {
-                    ListItem(
-                        headlineContent = { Text(folder) },
-                        supportingContent = { Text("${tracks.size} songs") },
-                        leadingContent = { Icon(Icons.Default.Folder, null) }
-                    )
                 }
             }
         }
