@@ -172,6 +172,7 @@ private fun VybeeeApp(
     var showFullPlayer by remember { mutableStateOf(false) }
     var sleepTimerEnd by rememberSaveable { mutableStateOf<Long?>(null) }
     var showSleepTimer by rememberSaveable { mutableStateOf(false) }
+    var showClearQueue by rememberSaveable { mutableStateOf(false) }
     val songs by vm.songs.collectAsState()
     val query by vm.query.collectAsState()
     val favorites by vm.favorites.collectAsState()
@@ -264,6 +265,7 @@ private fun VybeeeApp(
                     vm = vm,
                     sleepTimerEnd = sleepTimerEnd,
                     onSleepTimerClick = { showSleepTimer = true },
+                    onClearQueueClick = { showClearQueue = true },
                     onClose = { showFullPlayer = false }
                 )
             } else {
@@ -309,6 +311,18 @@ private fun VybeeeApp(
             onCancel = {
                 sleepTimerEnd = null
                 showSleepTimer = false
+            }
+        )
+    }
+    if (showClearQueue) {
+        ClearQueueDialog(
+            onDismiss = { showClearQueue = false },
+            onConfirm = {
+                controller?.stop()
+                controller?.clearMediaItems()
+                sleepTimerEnd = null
+                showClearQueue = false
+                showFullPlayer = false
             }
         )
     }
@@ -1394,6 +1408,7 @@ private fun FullPlayerScreen(
     vm: MusicLibraryViewModel,
     sleepTimerEnd: Long?,
     onSleepTimerClick: () -> Unit,
+    onClearQueueClick: () -> Unit,
     onClose: () -> Unit
 ) {
     val favorite = vm.favorites.collectAsState().value.contains(song.id)
@@ -1498,11 +1513,20 @@ private fun FullPlayerScreen(
 
         Spacer(Modifier.height(12.dp))
         if (queueCount > 0) {
-            Text(
-                "Queue • ${playerState.index + 1}/$queueCount",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Queue • ${playerState.index + 1}/$queueCount",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onClearQueueClick) {
+                    Text("Clear queue")
+                }
+            }
             Spacer(Modifier.height(6.dp))
             QueueList(controller, playerState.index)
         } else {
@@ -1512,6 +1536,30 @@ private fun FullPlayerScreen(
             )
         }
     }
+}
+
+@Composable
+private fun ClearQueueDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Clear queue?") },
+        text = {
+            Text("This will stop playback and remove all songs from the current queue.")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Clear queue")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
