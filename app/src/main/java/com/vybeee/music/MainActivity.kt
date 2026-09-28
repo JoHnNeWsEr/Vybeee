@@ -95,7 +95,8 @@ class MainActivity : ComponentActivity() {
                         prefs.edit().putBoolean("onboarding_completed", true).apply()
                         showOnboarding = false
                         requestPermissionsIfNeeded()
-                    }
+                    },
+                    onShowIntro = { showOnboarding = true }
                 )
             }
         }
@@ -141,6 +142,7 @@ private fun VybeeeApp(
     onThemeModeChange: (String) -> Unit,
     showOnboarding: Boolean,
     onOnboardingFinished: () -> Unit,
+    onShowIntro: () -> Unit,
     vm: MusicLibraryViewModel = viewModel()
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
@@ -262,7 +264,7 @@ private fun VybeeeApp(
                         vm,
                         themeMode,
                         onThemeModeChange,
-                        onShowIntro = { showOnboarding = true }
+                        onShowIntro = onShowIntro
                     )
                 }
                 if (nowPlaying != null) {
