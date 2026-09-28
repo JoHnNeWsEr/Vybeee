@@ -12,8 +12,8 @@ android {
         applicationId = "com.vybeee.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1120
-        versionName = "1.12.0"
+        versionCode = 1121
+        versionName = "1.12.1"
     }
 
     signingConfigs {
