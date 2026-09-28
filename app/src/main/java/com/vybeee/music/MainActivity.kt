@@ -351,6 +351,7 @@ private fun rememberPlayerUiState(controller: MediaController?): PlayerUiState {
     return state
 }
 
+@Composable
 private fun BrandSplashScreen() {
     Surface(
         modifier = Modifier.fillMaxSize(),
