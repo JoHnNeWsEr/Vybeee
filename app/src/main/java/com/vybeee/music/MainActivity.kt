@@ -144,6 +144,7 @@ private enum class Tab(val label: String, val icon: androidx.compose.ui.graphics
     PLAYLISTS("Playlists", Icons.Default.QueueMusic),
     FOLDERS("Folders", Icons.Default.Folder),
     GENRES("Genres", Icons.Default.MusicNote),
+    HISTORY("History", Icons.Default.History),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -287,6 +288,7 @@ private fun VybeeeApp(
                     Tab.MORE -> MoreScreen { selected = it }
                     Tab.FOLDERS -> FoldersScreen(songs, vm, controller)
                     Tab.GENRES -> GenresScreen(songs, controller, vm)
+                    Tab.HISTORY -> HistoryScreen(songs, favorites, vm, controller)
                     Tab.SETTINGS -> SettingsScreen(
                         vm,
                         themeMode,
@@ -792,6 +794,12 @@ private fun MoreScreen(go: (Tab) -> Unit) {
             leadingContent = { Icon(Icons.Default.MusicNote, null) }
         )
         ListItem(
+            modifier = Modifier.clickable { go(Tab.HISTORY) },
+            headlineContent = { Text("History") },
+            supportingContent = { Text("See your recently played songs") },
+            leadingContent = { Icon(Icons.Default.History, null) }
+        )
+        ListItem(
             modifier = Modifier.clickable { go(Tab.SETTINGS) },
             headlineContent = { Text("Settings") },
             supportingContent = { Text("Library, appearance, and privacy") },
@@ -800,6 +808,88 @@ private fun MoreScreen(go: (Tab) -> Unit) {
     }
 }
 
+
+@Composable
+private fun HistoryScreen(
+    songs: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?
+) {
+    val recentIds by vm.recent.collectAsState()
+    val recentSongs = recentIds.mapNotNull { id -> songs.find { it.id == id } }
+    var showClearDialog by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("History", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Your recently played songs",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (recentSongs.isNotEmpty()) {
+                TextButton(onClick = { showClearDialog = true }) {
+                    Text("Clear")
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
+        if (recentSongs.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.History, null, Modifier.size(48.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text("No listening history yet.")
+                    Text(
+                        "Songs you play will appear here.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            LazyColumn {
+                items(recentSongs, key = { it.id }) { song ->
+                    SongRow(
+                        song = song,
+                        favorite = favorites.contains(song.id),
+                        onFavorite = { vm.toggleFavorite(song.id) },
+                        playCount = vm.playCount(song.id)
+                    ) {
+                        playSong(controller, song, recentSongs)
+                        vm.recordPlayed(song.id)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear listening history?") },
+            text = {
+                Text("This removes your recently played list. Your favorites, playlists, and play counts will stay unchanged.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.clearRecentlyPlayed()
+                    showClearDialog = false
+                }) {
+                    Text("Clear history")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
 
 private data class GenreGroup(
     val name: String,
@@ -1306,7 +1396,7 @@ private fun SettingsScreen(
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.8.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.14.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

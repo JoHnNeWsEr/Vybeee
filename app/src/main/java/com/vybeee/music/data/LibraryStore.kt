@@ -31,6 +31,10 @@ class LibraryStore(context: Context) {
         incrementPlayCount(id)
     }
 
+    fun clearRecentlyPlayed() {
+        prefs.edit().remove("recent").apply()
+    }
+
     private fun playCounts(): Map<Long, Int> =
         prefs.getString("play_counts", "")
             ?.split(',')

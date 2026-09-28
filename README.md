@@ -63,3 +63,11 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Added Fredoka SemiBold for the Vybeee wordmark.
 - Updated the dark palette around the brand background `#14101E`.
 - Existing music-library and playback features are preserved.
+
+
+## v1.14.0
+- Added a dedicated History screen for recently played songs.
+- Added a Clear History action with confirmation.
+- Clearing history does not remove favorites, playlists, or play counts.
+- Added History to the More section.
+- Updated the project updater default and in-app version label to 1.14.0.

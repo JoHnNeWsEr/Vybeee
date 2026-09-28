@@ -137,6 +137,11 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
         _nowPlaying.value = _songs.value.find { it.id == id }
     }
 
+    fun clearRecentlyPlayed() {
+        store.clearRecentlyPlayed()
+        _recent.value = emptyList()
+    }
+
     fun syncNowPlaying(id: Long) {
         _nowPlaying.value = _songs.value.find { it.id == id }
     }
