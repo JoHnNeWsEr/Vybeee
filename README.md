@@ -50,7 +50,7 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Theme changes apply immediately and remain after restarting Vybeee.
 
 
-## v1.8.0
+## v1.9.0
 - Added a Continue Listening card on Home for the current song.
 - Added a Recently Added section on Home using local MediaStore date information.
 - Added quick play controls for Continue Listening.
