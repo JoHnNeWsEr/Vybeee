@@ -34,6 +34,18 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
     fun refresh() {
         // MediaStore can contain thousands of songs. Never scan it on the
         // main/UI thread, otherwise the app can trigger an Android ANR.
+        if (Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(),
+                android.Manifest.permission.READ_MEDIA_AUDIO
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        if (Build.VERSION.SDK_INT < 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(),
+                android.Manifest.permission.READ_EXTERNAL_STORAGE
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
         viewModelScope.launch(Dispatchers.IO) {
             val resolver = getApplication<Application>().contentResolver
             val result = mutableListOf<AudioSong>()

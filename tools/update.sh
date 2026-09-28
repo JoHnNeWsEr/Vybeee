@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_DIR="/sdcard/Vybeee/project/Vybeee-1.0.0"
-ZIP="${1:-/sdcard/Download/Vybeee-1.3.1-anr-fix.zip}"
+ZIP="${1:-/sdcard/Download/Vybeee-1.3.2-anr-fix.zip}"
 
 if [ ! -f "$ZIP" ]; then
   echo "ZIP not found: $ZIP"

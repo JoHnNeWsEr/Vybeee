@@ -16,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,25 +39,43 @@ import com.vybeee.music.ui.theme.VybeeeTheme
 import kotlin.math.max
 
 class MainActivity : ComponentActivity() {
-    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var audioPermissionGranted by mutableStateOf(false)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(permission)
-        }
+    private val audioPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        audioPermissionGranted = granted
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+        audioPermissionGranted = ContextCompat.checkSelfPermission(this, audioPermission) == PackageManager.PERMISSION_GRANTED
+
         controllerFuture = MediaController.Builder(
             this,
             SessionToken(this, ComponentName(this, VybeeePlaybackService::class.java))
         ).buildAsync()
-        setContent { VybeeeTheme { VybeeeApp(controllerFuture) } }
+
+        setContent {
+            VybeeeTheme {
+                VybeeeApp(controllerFuture, audioPermissionGranted)
+            }
+        }
+
+        if (!audioPermissionGranted) {
+            audioPermissionLauncher.launch(audioPermission)
+        } else if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     override fun onDestroy() {
@@ -89,6 +109,7 @@ private data class PlayerUiState(
 @Composable
 private fun VybeeeApp(
     controllerFuture: ListenableFuture<MediaController>?,
+    audioPermissionGranted: Boolean,
     vm: MusicLibraryViewModel = viewModel()
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
@@ -102,11 +123,23 @@ private fun VybeeeApp(
     val context = LocalContext.current
     var controller by remember { mutableStateOf<MediaController?>(null) }
 
-    LaunchedEffect(controllerFuture) {
-        controllerFuture?.let { future ->
-            controller = future.get()
-            controller?.currentMediaItem?.mediaId?.toLongOrNull()?.let(vm::syncNowPlaying)
+    LaunchedEffect(audioPermissionGranted) {
+        if (audioPermissionGranted) {
+            vm.refresh()
         }
+    }
+
+    DisposableEffect(controllerFuture) {
+        val future = controllerFuture ?: return@DisposableEffect onDispose { }
+        val executor = ContextCompat.getMainExecutor(context)
+        val listener = Runnable {
+            if (!future.isCancelled) {
+                controller = runCatching { future.get() }.getOrNull()
+                controller?.currentMediaItem?.mediaId?.toLongOrNull()?.let(vm::syncNowPlaying)
+            }
+        }
+        future.addListener(listener, executor)
+        onDispose { }
     }
 
     DisposableEffect(controller) {
