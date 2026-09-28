@@ -4,7 +4,10 @@ import android.app.Application
 import android.os.Build
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class SongSort {
@@ -29,58 +32,63 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
     init { refresh() }
 
     fun refresh() {
-        val resolver = getApplication<Application>().contentResolver
-        val result = mutableListOf<AudioSong>()
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = mutableListOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATE_ADDED
-        )
-        if (Build.VERSION.SDK_INT >= 29) projection += MediaStore.Audio.Media.RELATIVE_PATH
-        else projection += MediaStore.Audio.Media.DATA
+        // MediaStore can contain thousands of songs. Never scan it on the
+        // main/UI thread, otherwise the app can trigger an Android ANR.
+        viewModelScope.launch(Dispatchers.IO) {
+            val resolver = getApplication<Application>().contentResolver
+            val result = mutableListOf<AudioSong>()
+            val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            val projection = mutableListOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATE_ADDED
+            )
+            if (Build.VERSION.SDK_INT >= 29) projection += MediaStore.Audio.Media.RELATIVE_PATH
+            else projection += MediaStore.Audio.Media.DATA
 
-        resolver.query(
-            collection,
-            projection.toTypedArray(),
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0",
-            null,
-            "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val addedCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
-            val folderCol = if (Build.VERSION.SDK_INT >= 29)
-                cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
-            else
-                cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+            resolver.query(
+                collection,
+                projection.toTypedArray(),
+                "${MediaStore.Audio.Media.IS_MUSIC} != 0",
+                null,
+                "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val addedCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
+                val folderCol = if (Build.VERSION.SDK_INT >= 29)
+                    cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+                else
+                    cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
 
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                val rawFolder = if (folderCol >= 0) cursor.getString(folderCol).orEmpty() else ""
-                val folder = rawFolder.trimEnd('/')
-                    .substringAfterLast('/')
-                    .ifBlank { "Music" }
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
+                    val rawFolder = if (folderCol >= 0) cursor.getString(folderCol).orEmpty() else ""
+                    val folder = rawFolder.trimEnd('/')
+                        .substringAfterLast('/')
+                        .ifBlank { "Music" }
 
-                result += AudioSong(
-                    id = id,
-                    title = cursor.getString(titleCol).orEmpty().ifBlank { "Unknown title" },
-                    artist = cursor.getString(artistCol).orEmpty().ifBlank { "Unknown artist" },
-                    album = cursor.getString(albumCol).orEmpty().ifBlank { "Unknown album" },
-                    duration = cursor.getLong(durationCol),
-                    uri = "${MediaStore.Audio.Media.EXTERNAL_CONTENT_URI}/$id",
-                    folder = folder,
-                    dateAdded = if (addedCol >= 0) cursor.getLong(addedCol) else 0L
-                )
+                    result += AudioSong(
+                        id = id,
+                        title = cursor.getString(titleCol).orEmpty().ifBlank { "Unknown title" },
+                        artist = cursor.getString(artistCol).orEmpty().ifBlank { "Unknown artist" },
+                        album = cursor.getString(albumCol).orEmpty().ifBlank { "Unknown album" },
+                        duration = cursor.getLong(durationCol),
+                        uri = "${MediaStore.Audio.Media.EXTERNAL_CONTENT_URI}/$id",
+                        folder = folder,
+                        dateAdded = if (addedCol >= 0) cursor.getLong(addedCol) else 0L
+                    )
+                }
             }
+
+            _songs.value = result
         }
-        _songs.value = result
     }
 
     fun setQuery(value: String) { _query.value = value }
