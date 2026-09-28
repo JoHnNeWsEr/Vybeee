@@ -1256,11 +1256,48 @@ private fun GenresScreen(
         loading = false
     }
 
+    var query by rememberSaveable { mutableStateOf("") }
+    val filteredGroups = remember(groups, query) {
+        val q = query.trim()
+        if (q.isBlank()) groups else groups.filter {
+            it.name.contains(q, ignoreCase = true) ||
+                it.songs.any { song ->
+                    song.artist.contains(q, ignoreCase = true) ||
+                        song.album.contains(q, ignoreCase = true)
+                }
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Genres", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Genres",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            if (query.isNotBlank()) {
+                IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Clear, "Clear genre search")
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, "Search genres") },
+            placeholder = { Text("Search genres, artists, or albums") }
+        )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Browse your local music by genre",
+            if (query.isBlank()) "Browse your local music by genre"
+            else "${filteredGroups.size} matching ${if (filteredGroups.size == 1) "genre" else "genres"}",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(12.dp))
@@ -1279,9 +1316,22 @@ private fun GenresScreen(
                     )
                 }
             }
+            filteredGroups.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.SearchOff, null, Modifier.size(44.dp))
+                        Spacer(Modifier.height(10.dp))
+                        Text("No matching genres.")
+                        Text(
+                            "Try a different search.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             else -> {
                 LazyColumn {
-                    items(groups, key = { it.name }) { group ->
+                    items(filteredGroups, key = { it.name }) { group ->
                         Card(
                             Modifier
                                 .fillMaxWidth()
