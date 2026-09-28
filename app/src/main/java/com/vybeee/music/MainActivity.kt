@@ -807,21 +807,48 @@ private fun AlbumsScreen(
     vm: MusicLibraryViewModel,
     onOpenAlbum: (String) -> Unit
 ) {
-    val albums = songs.groupBy { it.album }.toList().sortedBy { it.first.lowercase() }
+    var query by rememberSaveable { mutableStateOf("") }
+    val albums = songs.groupBy { it.album }
+        .toList()
+        .sortedBy { it.first.lowercase() }
+    val filteredAlbums = albums.filter { (album, tracks) ->
+        query.isBlank() ||
+            album.contains(query, ignoreCase = true) ||
+            tracks.any { it.artist.contains(query, ignoreCase = true) }
+    }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text("Albums", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
             "Browse your local music by album",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            singleLine = true,
+            placeholder = { Text("Search albums or artists…") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Clear, "Clear search")
+                    }
+                }
+            }
+        )
         if (albums.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No albums yet.")
             }
+        } else if (filteredAlbums.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No matching albums.")
+            }
         } else {
             LazyColumn {
-                items(albums, key = { it.first }) { (album, tracks) ->
+                items(filteredAlbums, key = { it.first }) { (album, tracks) ->
                     Card(
                         Modifier
                             .fillMaxWidth()
@@ -857,21 +884,48 @@ private fun ArtistsScreen(
     vm: MusicLibraryViewModel,
     onOpenArtist: (String) -> Unit
 ) {
-    val artists = songs.groupBy { it.artist }.toList().sortedBy { it.first.lowercase() }
+    var query by rememberSaveable { mutableStateOf("") }
+    val artists = songs.groupBy { it.artist }
+        .toList()
+        .sortedBy { it.first.lowercase() }
+    val filteredArtists = artists.filter { (artist, tracks) ->
+        query.isBlank() ||
+            artist.contains(query, ignoreCase = true) ||
+            tracks.any { it.album.contains(query, ignoreCase = true) }
+    }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text("Artists", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
             "Browse your local music by artist",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            singleLine = true,
+            placeholder = { Text("Search artists or albums…") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Clear, "Clear search")
+                    }
+                }
+            }
+        )
         if (artists.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No artists yet.")
             }
+        } else if (filteredArtists.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No matching artists.")
+            }
         } else {
             LazyColumn {
-                items(artists, key = { it.first }) { (artist, tracks) ->
+                items(filteredArtists, key = { it.first }) { (artist, tracks) ->
                     ListItem(
                         modifier = Modifier.clickable { onOpenArtist(artist) },
                         headlineContent = { Text(artist, maxLines = 1) },

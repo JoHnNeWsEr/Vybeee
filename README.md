@@ -65,15 +65,15 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Existing music-library and playback features are preserved.
 
 
-## v1.16.0
+## v1.17.0
 - Added a dedicated History screen for recently played songs.
 - Added a Clear History action with confirmation.
 - Clearing history does not remove favorites, playlists, or play counts.
 - Added History to the More section.
-- Updated the project updater default and in-app version label to 1.16.0.
+- Updated the project updater default and in-app version label to 1.17.0.
 
 
-## 1.16.0
+## 1.17.0
 - Album and artist detail browsing
 - Album/artist artwork and quick play
 - Play and shuffle controls on detail screens
