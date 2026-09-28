@@ -5,5 +5,7 @@
         <item name="android:navigationBarColor">#14101E</item>
         <item name="android:statusBarColor">#14101E</item>
         <item name="android:windowBackground">#14101E</item>
+        <item name="android:windowSplashScreenBackground">#14101E</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/vybeee_note_icon</item>
     </style>
 </resources>

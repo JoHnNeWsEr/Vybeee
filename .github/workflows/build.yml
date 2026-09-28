@@ -24,6 +24,14 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Download Vybeee branding font
+        run: |
+          mkdir -p app/src/main/res/font
+          curl -L --fail --retry 3 \
+            https://raw.githubusercontent.com/google/fonts/main/ofl/fredoka/static/Fredoka-SemiBold.ttf \
+            -o app/src/main/res/font/fredoka_semibold.ttf
+          test -s app/src/main/res/font/fredoka_semibold.ttf
+
       - name: Prepare release signing key
         env:
           KEYSTORE_B64: ${{ secrets.VYBEEE_KEYSTORE_BASE64 }}

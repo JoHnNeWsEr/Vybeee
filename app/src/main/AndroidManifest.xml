@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <application android:allowBackup="true" android:label="Vybeee" android:supportsRtl="true" android:theme="@style/Theme.Vybeee">
+    <application android:allowBackup="true" android:label="Vybeee" android:icon="@drawable/vybeee_note_icon" android:roundIcon="@drawable/vybeee_note_icon" android:supportsRtl="true" android:theme="@style/Theme.Vybeee">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

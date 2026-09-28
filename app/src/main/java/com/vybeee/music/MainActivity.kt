@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,8 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
@@ -81,8 +87,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
             var showOnboarding by remember { mutableStateOf(!onboardingCompleted) }
+            var showBrandSplash by remember { mutableStateOf(true) }
+
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(1100L)
+                showBrandSplash = false
+            }
+
             VybeeeTheme(themeMode = themeMode) {
-                VybeeeApp(
+                if (showBrandSplash) {
+                    BrandSplashScreen()
+                } else {
+                    VybeeeApp(
                     controllerFuture = controllerFuture,
                     audioPermissionGranted = audioPermissionGranted,
                     themeMode = themeMode,
@@ -97,7 +113,8 @@ class MainActivity : ComponentActivity() {
                         requestPermissionsIfNeeded()
                     },
                     onShowIntro = { showOnboarding = true }
-                )
+                    )
+                }
             }
         }
 
@@ -244,6 +261,7 @@ private fun VybeeeApp(
                     onClose = { showFullPlayer = false }
                 )
             } else {
+                BrandHeader()
                 when (selected) {
                     Tab.HOME -> HomeScreen(songs, favorites, vm, controller) { selected = it }
                     Tab.SONGS -> SongsScreen(filtered, query, vm, controller, favorites)
@@ -329,6 +347,64 @@ private fun rememberPlayerUiState(controller: MediaController?): PlayerUiState {
     return state
 }
 
+private val VybeeeBrandFont = FontFamily(Font(R.font.fredoka_semibold, FontWeight.SemiBold))
+
+@Composable
+private fun BrandSplashScreen() {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = androidx.compose.ui.graphics.Color(0xFF14101E)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.vybeee_note_icon),
+                contentDescription = "Vybeee",
+                modifier = Modifier.size(260.dp)
+            )
+            Spacer(Modifier.height(38.dp))
+            Text(
+                "Vybeee",
+                fontFamily = VybeeeBrandFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 64.sp,
+                color = androidx.compose.ui.graphics.Color.White
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Your music. Your vibe.",
+                fontSize = 24.sp,
+                color = androidx.compose.ui.graphics.Color(0xFFA29AB8),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun BrandHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(R.drawable.vybeee_note_icon),
+            contentDescription = "Vybeee",
+            modifier = Modifier.size(42.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Vybeee",
+            fontFamily = VybeeeBrandFont,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleLarge
+        )
+    }
+}
+
 @Composable
 private fun OnboardingScreen(onFinished: () -> Unit) {
     var page by rememberSaveable { mutableStateOf(0) }
@@ -338,7 +414,6 @@ private fun OnboardingScreen(onFinished: () -> Unit) {
         "Vybeee plays music stored on your device. Your library, favorites, playlists, and settings stay on your phone.",
         "Scan your music, pick a song, and enjoy background playback, queues, favorites, themes, and a sleep timer."
     )
-    val icons = listOf(Icons.Default.MusicNote, Icons.Default.PhoneAndroid, Icons.Default.Headphones)
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -346,15 +421,11 @@ private fun OnboardingScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Surface(
-                Modifier.size(112.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                tonalElevation = 8.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icons[page], null, Modifier.size(58.dp))
-                }
-            }
+            Image(
+                painter = painterResource(R.drawable.vybeee_note_icon),
+                contentDescription = "Vybeee",
+                modifier = Modifier.size(112.dp)
+            )
             Spacer(Modifier.height(32.dp))
             Text(
                 titles[page],

@@ -50,8 +50,16 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Theme changes apply immediately and remain after restarting Vybeee.
 
 
-## v1.9.0
+## v1.10.0
 - Added a Continue Listening card on Home for the current song.
 - Added a Recently Added section on Home using local MediaStore date information.
 - Added quick play controls for Continue Listening.
 - Kept all v1.7.0 onboarding, theme, playback, playlist, favorite, queue, and sleep timer features intact.
+
+
+## 1.10.0 — Vybeee Branding
+- Added the Vybeee note-swirl visual identity to the launcher and app header.
+- Added a branded launch splash with the tagline “Your music. Your vibe.”
+- Added Fredoka SemiBold for the Vybeee wordmark.
+- Updated the dark palette around the brand background `#14101E`.
+- Existing music-library and playback features are preserved.
