@@ -66,8 +66,21 @@ class MainActivity : ComponentActivity() {
         ).buildAsync()
 
         val prefs = getSharedPreferences("vybeee_settings", MODE_PRIVATE)
+        val onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
+
+        fun requestPermissionsIfNeeded() {
+            if (!audioPermissionGranted) {
+                audioPermissionLauncher.launch(audioPermission)
+            } else if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         setContent {
             var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
+            var showOnboarding by remember { mutableStateOf(!onboardingCompleted) }
             VybeeeTheme(themeMode = themeMode) {
                 VybeeeApp(
                     controllerFuture = controllerFuture,
@@ -76,17 +89,19 @@ class MainActivity : ComponentActivity() {
                     onThemeModeChange = { mode ->
                         themeMode = mode
                         prefs.edit().putString("theme_mode", mode).apply()
+                    },
+                    showOnboarding = showOnboarding,
+                    onOnboardingFinished = {
+                        prefs.edit().putBoolean("onboarding_completed", true).apply()
+                        showOnboarding = false
+                        requestPermissionsIfNeeded()
                     }
                 )
             }
         }
 
-        if (!audioPermissionGranted) {
-            audioPermissionLauncher.launch(audioPermission)
-        } else if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (onboardingCompleted) {
+            requestPermissionsIfNeeded()
         }
     }
 
@@ -124,6 +139,8 @@ private fun VybeeeApp(
     audioPermissionGranted: Boolean,
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
+    showOnboarding: Boolean,
+    onOnboardingFinished: () -> Unit,
     vm: MusicLibraryViewModel = viewModel()
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
@@ -138,6 +155,11 @@ private fun VybeeeApp(
     val filtered = remember(songs, query, sort) { vm.filteredSongs(songs) }
     val context = LocalContext.current
     var controller by remember { mutableStateOf<MediaController?>(null) }
+
+    if (showOnboarding) {
+        OnboardingScreen(onFinished = onOnboardingFinished)
+        return
+    }
 
     LaunchedEffect(audioPermissionGranted) {
         if (audioPermissionGranted) {
@@ -236,7 +258,12 @@ private fun VybeeeApp(
                     Tab.PLAYLISTS -> PlaylistsScreen(songs, vm, controller)
                     Tab.MORE -> MoreScreen { selected = it }
                     Tab.FOLDERS -> FoldersScreen(songs, vm, controller)
-                    Tab.SETTINGS -> SettingsScreen(vm, themeMode, onThemeModeChange)
+                    Tab.SETTINGS -> SettingsScreen(
+                        vm,
+                        themeMode,
+                        onThemeModeChange,
+                        onShowIntro = { showOnboarding = true }
+                    )
                 }
                 if (nowPlaying != null) {
                     MiniPlayer(nowPlaying!!, controller) { showFullPlayer = true }
@@ -298,6 +325,81 @@ private fun rememberPlayerUiState(controller: MediaController?): PlayerUiState {
     }
 
     return state
+}
+
+@Composable
+private fun OnboardingScreen(onFinished: () -> Unit) {
+    var page by rememberSaveable { mutableStateOf(0) }
+    val titles = listOf("Welcome to Vybeee", "Your music stays yours", "Ready to vibe")
+    val bodies = listOf(
+        "A clean offline music player built for your local library.",
+        "Vybeee plays music stored on your device. Your library, favorites, playlists, and settings stay on your phone.",
+        "Scan your music, pick a song, and enjoy background playback, queues, favorites, themes, and a sleep timer."
+    )
+    val icons = listOf(Icons.Default.MusicNote, Icons.Default.PhoneAndroid, Icons.Default.Headphones)
+
+    Surface(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                Modifier.size(112.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = 8.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icons[page], null, Modifier.size(58.dp))
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+            Text(
+                titles[page],
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                bodies[page],
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(28.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) { index ->
+                    Surface(
+                        Modifier.size(if (index == page) 24.dp else 8.dp, 8.dp),
+                        shape = MaterialTheme.shapes.small,
+                        color = if (index == page) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ) {}
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (page > 0) {
+                    OutlinedButton(
+                        onClick = { page-- },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Back") }
+                }
+                Button(
+                    onClick = {
+                        if (page == 2) onFinished() else page++
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (page == 2) "Get started" else "Next")
+                }
+            }
+            if (page < 2) {
+                TextButton(onClick = onFinished) { Text("Skip") }
+            }
+        }
+    }
 }
 
 @Composable
@@ -880,7 +982,8 @@ private fun themeModeLabel(mode: String): String = when (mode) {
 private fun SettingsScreen(
     vm: MusicLibraryViewModel,
     themeMode: String,
-    onThemeModeChange: (String) -> Unit
+    onThemeModeChange: (String) -> Unit,
+    onShowIntro: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -913,6 +1016,14 @@ private fun SettingsScreen(
             }
         )
         ListItem(
+            headlineContent = { Text("Welcome to Vybeee") },
+            supportingContent = { Text("Replay the quick introduction and learn the main features") },
+            leadingContent = { Icon(Icons.Default.Info, null) },
+            trailingContent = {
+                TextButton(onClick = onShowIntro) { Text("Show") }
+            }
+        )
+        ListItem(
             headlineContent = { Text("Library") },
             supportingContent = { Text("Refresh scans music stored on this device") },
             leadingContent = { Icon(Icons.Default.LibraryMusic, null) },
@@ -924,7 +1035,7 @@ private fun SettingsScreen(
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.6.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.7.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
