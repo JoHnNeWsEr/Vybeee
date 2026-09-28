@@ -13,4 +13,4 @@ ONE-TIME SETUP:
 4. After the first stable release APK is installed, keep the keystore and all four values safe permanently. Losing them means future updates cannot be signed as the same app.
 
 IMPORTANT:
-The currently installed Vybeee 1.1.0 APK was built with GitHub's temporary debug key. It cannot be upgraded by this new permanent signing key. Uninstall the current Vybeee once before installing the first stable-signed APK. After that, future releases will update normally.
+The currently installed Vybeee 1.2.0 APK was built with GitHub's temporary debug key. It cannot be upgraded by this new permanent signing key. Uninstall the current Vybeee once before installing the first stable-signed APK. After that, future releases will update normally.
