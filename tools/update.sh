@@ -2,34 +2,47 @@
 set -e
 
 PROJECT_DIR="/sdcard/Vybeee/project/Vybeee-1.0.0"
-ZIP="${1:-/sdcard/Download/Vybeee-1.3.2-anr-fix.zip}"
+ZIP="${1:-/sdcard/Download/Vybeee-1.4.0.zip}"
 
 if [ ! -f "$ZIP" ]; then
   echo "ZIP not found: $ZIP"
   exit 1
 fi
 
+if [ ! -d "$PROJECT_DIR/.git" ]; then
+  echo "Git repository not found: $PROJECT_DIR"
+  exit 1
+fi
+
 cd "$PROJECT_DIR"
+
+BACKUP="/sdcard/Vybeee/project/Vybeee-1.0.0-backup-$(date +%Y%m%d-%H%M%S)"
+echo "==> Creating backup..."
+cp -a "$PROJECT_DIR" "$BACKUP"
+rm -rf "$BACKUP/.git"
 
 echo "==> Preserving Git repository..."
 TMP="$(mktemp -d)"
 cp -a .git "$TMP/.git"
 
+trap 'rm -rf "$TMP"' EXIT
+
+echo "==> Replacing project files..."
 find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 unzip -q "$ZIP" -d "$TMP/extracted"
 INNER="$TMP/extracted/Vybeee-1.0.0"
 
 if [ ! -d "$INNER" ]; then
   echo "Unexpected ZIP structure. Expected Vybeee-1.0.0/"
-  rm -rf "$TMP"
   exit 1
 fi
 
 cp -a "$INNER"/. .
-rm -rf "$TMP"
 
-echo "==> Configuring Git credential storage (one-time authentication may be requested)..."
-git config --global credential.helper store
+VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+echo "==> Vybeee version: ${VERSION:-unknown}"
+echo "==> Checking Git status..."
+git status --short
 
 git add .
 if git diff --cached --quiet; then
@@ -37,9 +50,15 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
 git commit -m "Update Vybeee ${VERSION:-library features}"
+echo "==> Pushing to GitHub..."
 git push
 
 echo
-echo "==> Vybeee update pushed successfully."
+echo "======================================"
+echo "Vybeee ${VERSION:-update} pushed successfully."
+echo "======================================"
+echo
+echo "Backup:"
+echo "$BACKUP"
+echo "GitHub Actions should now build the APK."

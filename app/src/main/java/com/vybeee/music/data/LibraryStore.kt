@@ -81,6 +81,22 @@ class LibraryStore(context: Context) {
         prefs.edit().remove("playlist_${name}").apply()
     }
 
+    fun renamePlaylist(oldName: String, newName: String): Boolean {
+        val clean = newName.trim()
+        if (oldName == "My Playlist" || clean.isBlank() || clean == oldName) return false
+        val names = playlists().toMutableSet()
+        if (clean in names) return false
+        val songs = playlistSongs(oldName)
+        names.remove(oldName)
+        names.add(clean)
+        prefs.edit()
+            .putStringSet("playlists", names)
+            .remove("playlist_${oldName}")
+            .putString("playlist_$clean", songs.joinToString(","))
+            .apply()
+        return true
+    }
+
     fun playlistSongs(name: String): List<Long> =
         prefs.getString("playlist_$name", "")
             ?.split(',')
@@ -91,5 +107,17 @@ class LibraryStore(context: Context) {
         val songs = playlistSongs(name).toMutableList()
         if (id in songs) songs.remove(id) else songs.add(id)
         prefs.edit().putString("playlist_$name", songs.joinToString(",")).apply()
+    }
+
+    fun movePlaylistSong(name: String, fromIndex: Int, toIndex: Int) {
+        val songs = playlistSongs(name).toMutableList()
+        if (fromIndex !in songs.indices || toIndex !in songs.indices) return
+        val item = songs.removeAt(fromIndex)
+        songs.add(toIndex, item)
+        prefs.edit().putString("playlist_$name", songs.joinToString(",")).apply()
+    }
+
+    fun clearPlaylist(name: String) {
+        prefs.edit().putString("playlist_$name", "").apply()
     }
 }

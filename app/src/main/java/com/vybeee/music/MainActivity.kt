@@ -607,28 +607,56 @@ private fun PlaylistDetailScreen(
     onBack: () -> Unit
 ) {
     var refresh by remember { mutableIntStateOf(0) }
+    var showAddSongs by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var showClearConfirm by remember { mutableStateOf(false) }
     val ids = remember(refresh, name, songs) { vm.playlistSongs(name) }
     val playlistSongs = ids.mapNotNull { id -> songs.find { it.id == id } }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
-            Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = { showAddSongs = true }) { Icon(Icons.Default.Add, "Add songs") }
+            if (name != "My Playlist") {
+                IconButton(onClick = { showRename = true }) { Icon(Icons.Default.Edit, "Rename playlist") }
+            }
             if (playlistSongs.isNotEmpty()) {
+                IconButton(onClick = {
+                    val shuffled = playlistSongs.shuffled()
+                    playSong(controller, shuffled.first(), shuffled)
+                    vm.recordPlayed(shuffled.first().id)
+                }) { Icon(Icons.Default.Shuffle, "Shuffle playlist") }
                 IconButton(onClick = {
                     playSong(controller, playlistSongs.first(), playlistSongs)
                     vm.recordPlayed(playlistSongs.first().id)
                 }) { Icon(Icons.Default.PlayArrow, "Play playlist") }
             }
         }
-        Text("${playlistSongs.size} songs", modifier = Modifier.padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("${playlistSongs.size} songs", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.weight(1f))
+            if (playlistSongs.isNotEmpty()) {
+                TextButton(onClick = { showClearConfirm = true }) { Text("Clear") }
+            }
+        }
         Spacer(Modifier.height(8.dp))
         if (playlistSongs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("This playlist is empty.") }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("This playlist is empty.")
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { showAddSongs = true }) { Text("Add songs") }
+                }
+            }
         } else {
             LazyColumn {
                 items(playlistSongs, key = { it.id }) { song ->
+                    val index = playlistSongs.indexOfFirst { it.id == song.id }
                     ListItem(
                         modifier = Modifier.clickable {
                             playSong(controller, song, playlistSongs)
@@ -637,8 +665,24 @@ private fun PlaylistDetailScreen(
                         headlineContent = { Text(song.title, maxLines = 1) },
                         supportingContent = { Text("${song.artist} • ${song.album}", maxLines = 1) },
                         trailingContent = {
-                            IconButton(onClick = { vm.togglePlaylistSong(name, song.id); refresh++ }) {
-                                Icon(Icons.Default.RemoveCircleOutline, "Remove")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    enabled = index > 0,
+                                    onClick = {
+                                        vm.movePlaylistSong(name, index, index - 1)
+                                        refresh++
+                                    }
+                                ) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                                IconButton(
+                                    enabled = index < playlistSongs.lastIndex,
+                                    onClick = {
+                                        vm.movePlaylistSong(name, index, index + 1)
+                                        refresh++
+                                    }
+                                ) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                                IconButton(onClick = { vm.togglePlaylistSong(name, song.id); refresh++ }) {
+                                    Icon(Icons.Default.RemoveCircleOutline, "Remove")
+                                }
                             }
                         }
                     )
@@ -646,6 +690,117 @@ private fun PlaylistDetailScreen(
             }
         }
     }
+
+    if (showAddSongs) {
+        AddSongsToPlaylistDialog(
+            playlistName = name,
+            songs = songs,
+            vm = vm,
+            onDismiss = { showAddSongs = false; refresh++ }
+        )
+    }
+    if (showRename) {
+        RenamePlaylistDialog(
+            currentName = name,
+            onDismiss = { showRename = false },
+            onRename = { newName ->
+                val renamed = vm.renamePlaylist(name, newName)
+                if (renamed) showRename = false
+                renamed
+            }
+        )
+    }
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear playlist?") },
+            text = { Text("Remove all songs from $name? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.clearPlaylist(name)
+                    showClearConfirm = false
+                    refresh++
+                }) { Text("Clear") }
+            },
+            dismissButton = { TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun AddSongsToPlaylistDialog(
+    playlistName: String,
+    songs: List<AudioSong>,
+    vm: MusicLibraryViewModel,
+    onDismiss: () -> Unit
+) {
+    var selected by remember(playlistName) { mutableStateOf(vm.playlistSongs(playlistName).toSet()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add songs") },
+        text = {
+            if (songs.isEmpty()) {
+                Text("No songs are available.")
+            } else {
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(songs, key = { it.id }) { song ->
+                        val checked = song.id in selected
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                if (checked) {
+                                    vm.togglePlaylistSong(playlistName, song.id)
+                                    selected = selected - song.id
+                                } else {
+                                    vm.togglePlaylistSong(playlistName, song.id)
+                                    selected = selected + song.id
+                                }
+                            }.padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = null)
+                            Column(Modifier.weight(1f)) {
+                                Text(song.title, maxLines = 1)
+                                Text(song.artist, maxLines = 1, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
+}
+
+@Composable
+private fun RenamePlaylistDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Boolean
+) {
+    var name by remember { mutableStateOf(currentName) }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename playlist") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; error = false },
+                    singleLine = true,
+                    label = { Text("Playlist name") },
+                    isError = error
+                )
+                if (error) {
+                    Text("Name is empty or already in use.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { error = !onRename(name) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -692,7 +847,7 @@ private fun SettingsScreen(vm: MusicLibraryViewModel) {
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.3.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.4.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -886,6 +1041,18 @@ private fun QueueList(controller: MediaController?, currentIndex: Int) {
                         if (index == currentIndex) Icons.Default.GraphicEq else Icons.Default.MusicNote,
                         null
                     )
+                },
+                trailingContent = {
+                    Row {
+                        IconButton(
+                            enabled = index > 0,
+                            onClick = { controller?.moveMediaItem(index, index - 1) }
+                        ) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                        IconButton(
+                            enabled = index < count - 1,
+                            onClick = { controller?.moveMediaItem(index, index + 1) }
+                        ) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                    }
                 }
             )
         }

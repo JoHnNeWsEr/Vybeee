@@ -157,5 +157,8 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
     fun playlistSongs(name: String): List<Long> = store.playlistSongs(name)
     fun createPlaylist(name: String) { store.createPlaylist(name) }
     fun deletePlaylist(name: String) { store.deletePlaylist(name) }
+    fun renamePlaylist(oldName: String, newName: String): Boolean = store.renamePlaylist(oldName, newName)
     fun togglePlaylistSong(name: String, id: Long) { store.togglePlaylistSong(name, id) }
+    fun movePlaylistSong(name: String, fromIndex: Int, toIndex: Int) { store.movePlaylistSong(name, fromIndex, toIndex) }
+    fun clearPlaylist(name: String) { store.clearPlaylist(name) }
 }
