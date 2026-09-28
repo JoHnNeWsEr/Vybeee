@@ -415,6 +415,8 @@ private fun HomeScreen(
     val recentIds by vm.recent.collectAsState()
     val recent = recentIds.mapNotNull { id -> songs.find { it.id == id } }.take(5)
     val mostPlayed = vm.mostPlayed(5)
+    val recentlyAdded = songs.sortedByDescending { it.dateAdded }.take(5)
+    val nowPlaying by vm.nowPlaying.collectAsState()
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -432,6 +434,33 @@ private fun HomeScreen(
                         Text("Your Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("${songs.size} songs • ${favorites.size} favorites • ${songs.map { it.album }.distinct().size} albums")
                     }
+                }
+            }
+            if (nowPlaying != null) {
+                Spacer(Modifier.height(22.dp))
+                Text("Continue listening", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                Card(Modifier.fillMaxWidth()) {
+                    ListItem(
+                        modifier = Modifier.clickable {
+                            if (controller?.isPlaying == true) controller.pause() else controller?.play()
+                        },
+                        headlineContent = { Text(nowPlaying!!.title, maxLines = 1, fontWeight = FontWeight.SemiBold) },
+                        supportingContent = { Text("${nowPlaying!!.artist} • ${nowPlaying!!.album}", maxLines = 1) },
+                        leadingContent = {
+                            Icon(Icons.Default.GraphicEq, null, Modifier.size(34.dp))
+                        },
+                        trailingContent = {
+                            FilledIconButton(onClick = {
+                                if (controller?.isPlaying == true) controller.pause() else controller?.play()
+                            }) {
+                                Icon(
+                                    if (controller?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    "Play"
+                                )
+                            }
+                        }
+                    )
                 }
             }
             Spacer(Modifier.height(22.dp))
@@ -473,6 +502,19 @@ private fun HomeScreen(
                 Text("Most played", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             items(mostPlayed, key = { "most_${it.id}" }) { song ->
+                SongRow(song, favorites.contains(song.id), { vm.toggleFavorite(song.id) }, vm.playCount(song.id)) {
+                    playSong(controller, song, songs)
+                    vm.recordPlayed(song.id)
+                }
+            }
+        }
+
+        if (recentlyAdded.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(22.dp))
+                Text("Recently added", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            items(recentlyAdded, key = { "added_${it.id}" }) { song ->
                 SongRow(song, favorites.contains(song.id), { vm.toggleFavorite(song.id) }, vm.playCount(song.id)) {
                     playSong(controller, song, songs)
                     vm.recordPlayed(song.id)
@@ -1037,7 +1079,7 @@ private fun SettingsScreen(
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.7.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.8.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
