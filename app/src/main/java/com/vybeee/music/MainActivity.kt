@@ -915,7 +915,7 @@ private fun AlbumDetailScreen(
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     if (tracks.isNotEmpty()) {
-                        SongArtwork(song = tracks.first(), size = 190.dp, cornerRadius = 24.dp)
+                        SongArtwork(song = tracks.first(), modifier = Modifier.size(190.dp), cornerRadius = 24.dp)
                     }
                     Spacer(Modifier.height(14.dp))
                     Text(album, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
@@ -995,7 +995,7 @@ private fun ArtistDetailScreen(
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     if (tracks.isNotEmpty()) {
-                        SongArtwork(song = tracks.first(), size = 190.dp, cornerRadius = 95.dp)
+                        SongArtwork(song = tracks.first(), modifier = Modifier.size(190.dp), cornerRadius = 95.dp)
                     }
                     Spacer(Modifier.height(14.dp))
                     Text(artist, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
