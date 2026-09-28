@@ -1,8 +1,8 @@
-# Vybeee v1.4.0
+# Vybeee v1.5.0
 
 Vybeee is an offline-first Android music player. Your music stays on your device; there is no account, server, streaming service, or cloud upload.
 
-## v1.4.0
+## v1.5.0
 - Songs library with local MediaStore scanning and refresh
 - Search songs by title, artist, album, or folder
 - Albums and artists library views
@@ -23,7 +23,7 @@ Planned next phases include richer artwork, a full player screen, queue controls
 GitHub Actions builds a release APK using a persistent private keystore stored in GitHub Actions secrets. The keystore itself is never committed to the repository.
 
 
-## v1.4.0
+## v1.5.0
 - Full now-playing screen with seek, previous/next and queue.
 - Shuffle and repeat off/all/one.
 - Recently played and persistent play counts.
@@ -32,10 +32,15 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Improved mini-player and playback state updates.
 
 
-## v1.4.0
+## v1.5.0
 - Playlist add/remove songs from a dedicated picker
 - Playlist rename and clear
 - Playlist song reordering
 - Shuffle playlists
 - Queue item reordering in the full player
 - Updated automatic updater and release version
+
+
+## v1.5.0
+- Added a sleep timer with 15, 30, 45, 60, and 90 minute options.
+- Timer can be cancelled and shows its active state in the full player.

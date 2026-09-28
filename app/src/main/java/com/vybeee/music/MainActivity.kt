@@ -114,6 +114,8 @@ private fun VybeeeApp(
 ) {
     var selected by remember { mutableStateOf(Tab.HOME) }
     var showFullPlayer by remember { mutableStateOf(false) }
+    var sleepTimerEnd by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showSleepTimer by rememberSaveable { mutableStateOf(false) }
     val songs by vm.songs.collectAsState()
     val query by vm.query.collectAsState()
     val favorites by vm.favorites.collectAsState()
@@ -161,6 +163,19 @@ private fun VybeeeApp(
 
     val playerState = rememberPlayerUiState(controller)
 
+    LaunchedEffect(controller, sleepTimerEnd) {
+        val end = sleepTimerEnd ?: return@LaunchedEffect
+        while (true) {
+            val remaining = end - System.currentTimeMillis()
+            if (remaining <= 0L) break
+            kotlinx.coroutines.delay(remaining.coerceAtMost(1000L))
+        }
+        if (sleepTimerEnd == end) {
+            controller?.pause()
+            sleepTimerEnd = null
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (!showFullPlayer) {
@@ -186,6 +201,8 @@ private fun VybeeeApp(
                     playerState = playerState,
                     songs = songs,
                     vm = vm,
+                    sleepTimerEnd = sleepTimerEnd,
+                    onSleepTimerClick = { showSleepTimer = true },
                     onClose = { showFullPlayer = false }
                 )
             } else {
@@ -212,6 +229,20 @@ private fun VybeeeApp(
                 }
             }
         }
+    }
+    if (showSleepTimer) {
+        SleepTimerDialog(
+            currentEnd = sleepTimerEnd,
+            onDismiss = { showSleepTimer = false },
+            onSetMinutes = { minutes ->
+                sleepTimerEnd = System.currentTimeMillis() + minutes * 60_000L
+                showSleepTimer = false
+            },
+            onCancel = {
+                sleepTimerEnd = null
+                showSleepTimer = false
+            }
+        )
     }
 }
 
@@ -847,7 +878,7 @@ private fun SettingsScreen(vm: MusicLibraryViewModel) {
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.4.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.5.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -894,6 +925,8 @@ private fun FullPlayerScreen(
     playerState: PlayerUiState,
     songs: List<AudioSong>,
     vm: MusicLibraryViewModel,
+    sleepTimerEnd: Long?,
+    onSleepTimerClick: () -> Unit,
     onClose: () -> Unit
 ) {
     val favorite = vm.favorites.collectAsState().value.contains(song.id)
@@ -909,6 +942,14 @@ private fun FullPlayerScreen(
             IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Close player") }
             Text("Now Playing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = onSleepTimerClick) {
+                Icon(
+                    Icons.Default.Timer,
+                    if (sleepTimerEnd != null) "Sleep timer set" else "Sleep timer",
+                    tint = if (sleepTimerEnd != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+            }
             IconButton(onClick = {
                 controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
             }) {
@@ -1008,6 +1049,50 @@ private fun FullPlayerScreen(
             )
         }
     }
+}
+
+@Composable
+private fun SleepTimerDialog(
+    currentEnd: Long?,
+    onDismiss: () -> Unit,
+    onSetMinutes: (Long) -> Unit,
+    onCancel: () -> Unit
+) {
+    val remainingMinutes = currentEnd?.let {
+        ((it - System.currentTimeMillis()).coerceAtLeast(0L) + 59_999L) / 60_000L
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sleep timer") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (remainingMinutes != null) {
+                    Text("Current timer: $remainingMinutes min remaining")
+                    HorizontalDivider()
+                }
+                listOf(15L, 30L, 45L, 60L, 90L).forEach { minutes ->
+                    TextButton(
+                        onClick = { onSetMinutes(minutes) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Stop after $minutes minutes")
+                    }
+                }
+                if (currentEnd != null) {
+                    TextButton(
+                        onClick = onCancel,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Cancel timer")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }
 
 @Composable
