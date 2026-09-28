@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p app/src/main/res/font
           curl -L --fail --retry 3 \
-            https://raw.githubusercontent.com/google/fonts/main/ofl/fredoka/static/Fredoka-SemiBold.ttf \
+            https://raw.githubusercontent.com/google/fonts/main/ofl/fredoka/Fredoka%5Bwdth,wght%5D.ttf \
             -o app/src/main/res/font/fredoka_semibold.ttf
           test -s app/src/main/res/font/fredoka_semibold.ttf
 
