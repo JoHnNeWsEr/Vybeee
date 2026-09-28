@@ -7,5 +7,6 @@ data class AudioSong(
     val album: String,
     val duration: Long,
     val uri: String,
-    val folder: String = "Music"
+    val folder: String = "Music",
+    val dateAdded: Long = 0L
 )

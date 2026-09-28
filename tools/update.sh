@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_DIR="/sdcard/Vybeee/project/Vybeee-1.0.0"
-ZIP="${1:-/sdcard/Download/Vybeee-1.2.0.zip}"
+ZIP="${1:-/sdcard/Download/Vybeee-1.3.0.zip}"
 
 if [ ! -f "$ZIP" ]; then
   echo "ZIP not found: $ZIP"
@@ -37,7 +37,8 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-git commit -m "Update Vybeee 1.2.0 library features"
+VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+git commit -m "Update Vybeee ${VERSION:-library features}"
 git push
 
 echo
