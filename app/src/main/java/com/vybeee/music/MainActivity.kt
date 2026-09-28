@@ -5,6 +5,10 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,8 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
@@ -347,9 +351,6 @@ private fun rememberPlayerUiState(controller: MediaController?): PlayerUiState {
     return state
 }
 
-private val VybeeeBrandFont = FontFamily(Font(R.font.fredoka_semibold, FontWeight.SemiBold))
-
-@Composable
 private fun BrandSplashScreen() {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -363,20 +364,20 @@ private fun BrandSplashScreen() {
             Image(
                 painter = painterResource(R.drawable.vybeee_note_icon),
                 contentDescription = "Vybeee",
-                modifier = Modifier.size(260.dp)
+                modifier = Modifier.size(150.dp),
+                contentScale = ContentScale.FillBounds
             )
-            Spacer(Modifier.height(38.dp))
-            Text(
-                "Vybeee",
-                fontFamily = VybeeeBrandFont,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 64.sp,
-                color = androidx.compose.ui.graphics.Color.White
+            Spacer(Modifier.height(32.dp))
+            Image(
+                painter = painterResource(R.drawable.vybeee_wordmark),
+                contentDescription = "Vybeee",
+                modifier = Modifier.width(190.dp).height(56.dp),
+                contentScale = ContentScale.Fit
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Your music. Your vibe.",
-                fontSize = 24.sp,
+                fontSize = 22.sp,
                 color = androidx.compose.ui.graphics.Color(0xFFA29AB8),
                 textAlign = TextAlign.Center
             )
@@ -386,21 +387,16 @@ private fun BrandSplashScreen() {
 
 @Composable
 private fun BrandHeader() {
+    val useLightWordmark = MaterialTheme.colorScheme.onBackground.red > 0.8f
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
-            painter = painterResource(R.drawable.vybeee_note_icon),
+            painter = painterResource(if (useLightWordmark) R.drawable.vybeee_brand_lockup else R.drawable.vybeee_brand_lockup_dark),
             contentDescription = "Vybeee",
-            modifier = Modifier.size(42.dp)
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            "Vybeee",
-            fontFamily = VybeeeBrandFont,
-            fontWeight = FontWeight.SemiBold,
-            style = MaterialTheme.typography.titleLarge
+            modifier = Modifier.width(150.dp).height(44.dp),
+            contentScale = ContentScale.Fit
         )
     }
 }
@@ -424,9 +420,10 @@ private fun OnboardingScreen(onFinished: () -> Unit) {
             Image(
                 painter = painterResource(R.drawable.vybeee_note_icon),
                 contentDescription = "Vybeee",
-                modifier = Modifier.size(112.dp)
+                modifier = Modifier.size(96.dp),
+                contentScale = ContentScale.FillBounds
             )
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(28.dp))
             Text(
                 titles[page],
                 style = MaterialTheme.typography.headlineMedium,
@@ -1166,7 +1163,11 @@ private fun MiniPlayer(song: AudioSong, controller: MediaController?, onOpen: ()
             Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.MusicNote, null, Modifier.size(34.dp))
+            SongArtwork(
+                song = song,
+                modifier = Modifier.size(48.dp),
+                cornerRadius = 12.dp
+            )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(song.title, maxLines = 1, fontWeight = FontWeight.SemiBold)
@@ -1186,6 +1187,55 @@ private fun MiniPlayer(song: AudioSong, controller: MediaController?, onOpen: ()
             IconButton(onClick = { controller?.seekToNextMediaItem() }) {
                 Icon(Icons.Default.SkipNext, "Next")
             }
+        }
+    }
+}
+
+@Composable
+private fun SongArtwork(
+    song: AudioSong,
+    modifier: Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp
+) {
+    val context = LocalContext.current
+    var bitmap by remember(song.uri) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(song.uri) {
+        bitmap = withContext(Dispatchers.IO) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, Uri.parse(song.uri))
+                retriever.embeddedPicture?.let { bytes ->
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            } catch (_: Exception) {
+                null
+            } finally {
+                try { retriever.release() } catch (_: Exception) { }
+            }
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(cornerRadius),
+        tonalElevation = 6.dp
+    ) {
+        val image = bitmap
+        if (image != null) {
+            Image(
+                bitmap = image.asImageBitmap(),
+                contentDescription = "Album artwork for ${song.title}",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.vybeee_note_icon),
+                contentDescription = "Vybeee artwork fallback",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
         }
     }
 }
@@ -1235,15 +1285,11 @@ private fun FullPlayerScreen(
         }
 
         Spacer(Modifier.height(30.dp))
-        Surface(
-            Modifier.size(250.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 8.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.MusicNote, null, Modifier.size(92.dp))
-            }
-        }
+        SongArtwork(
+            song = song,
+            modifier = Modifier.size(250.dp),
+            cornerRadius = 28.dp
+        )
 
         Spacer(Modifier.height(28.dp))
         Text(song.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2)
