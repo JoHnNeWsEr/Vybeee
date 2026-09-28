@@ -828,7 +828,7 @@ private fun QueueList(controller: MediaController?, currentIndex: Int) {
     if (count == 0) return
 
     LazyColumn(
-        Modifier.fillMaxWidth().weight(1f),
+        Modifier.fillMaxWidth().heightIn(max = 260.dp),
         contentPadding = PaddingValues(bottom = 20.dp)
     ) {
         items((0 until count).toList(), key = { it }) { index ->
