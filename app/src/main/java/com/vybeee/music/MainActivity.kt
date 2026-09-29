@@ -304,13 +304,11 @@ private fun VybeeeApp(
                     Tab.SONGS -> SongsScreen(filtered, query, vm, controller, favorites)
                     Tab.ALBUMS -> AlbumsScreen(songs, controller, vm) { selectedAlbum = it }
                     Tab.ARTISTS -> ArtistsScreen(songs, controller, vm) { selectedArtist = it }
-                    Tab.FAVORITES -> SongsScreen(
-                        songs.filter { it.id in favorites },
-                        query,
-                        vm,
-                        controller,
-                        favorites,
-                        "Favorites"
+                    Tab.FAVORITES -> FavoritesScreen(
+                        songs = songs,
+                        favorites = favorites,
+                        vm = vm,
+                        controller = controller
                     )
                     Tab.PLAYLISTS -> PlaylistsScreen(songs, vm, controller)
                     Tab.MORE -> MoreScreen { selected = it }
@@ -697,6 +695,92 @@ private fun SongsScreen(
                 items(songs, key = { it.id }) { song ->
                     SongRow(song, favorites.contains(song.id), { vm.toggleFavorite(song.id) }, vm.playCount(song.id)) {
                         playSong(controller, song, songs)
+                        vm.recordPlayed(song.id)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesScreen(
+    songs: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val favoriteSongs = remember(songs, favorites) { songs.filter { it.id in favorites } }
+    val filteredFavorites = remember(favoriteSongs, query) {
+        val q = query.trim()
+        if (q.isBlank()) favoriteSongs
+        else favoriteSongs.filter {
+            it.title.contains(q, ignoreCase = true) ||
+                it.artist.contains(q, ignoreCase = true) ||
+                it.album.contains(q, ignoreCase = true)
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Favorites", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            if (filteredFavorites.isNotEmpty()) {
+                IconButton(onClick = {
+                    val shuffled = filteredFavorites.shuffled()
+                    playSong(controller, shuffled.first(), shuffled)
+                    vm.recordPlayed(shuffled.first().id)
+                }) {
+                    Icon(Icons.Default.Shuffle, "Shuffle favorites")
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            singleLine = true,
+            placeholder = { Text("Search favorites, artists, albums…") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Clear, "Clear search")
+                    }
+                }
+            }
+        )
+
+        Text(
+            if (query.isBlank()) "${favoriteSongs.size} ${if (favoriteSongs.size == 1) "favorite" else "favorites"}"
+            else "${filteredFavorites.size} matching ${if (filteredFavorites.size == 1) "favorite" else "favorites"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (filteredFavorites.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.FavoriteBorder, null, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(if (favoriteSongs.isEmpty()) "No favorite songs yet" else "No matching favorites")
+                }
+            }
+        } else {
+            LazyColumn {
+                items(filteredFavorites, key = { it.id }) { song ->
+                    SongRow(
+                        song = song,
+                        favorite = true,
+                        onFavorite = { vm.toggleFavorite(song.id) },
+                        playCount = vm.playCount(song.id)
+                    ) {
+                        playSong(controller, song, filteredFavorites)
                         vm.recordPlayed(song.id)
                     }
                 }
