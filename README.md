@@ -83,3 +83,10 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Added folder search across folder names, song titles, artists, and albums.
 - Added clear-search control and empty-result state for Folders.
 - Updated Home tagline to “Your music. Your vibe.”
+
+
+## v1.20.0
+- Added playlist search by playlist name.
+- Added clear-search control and matching-playlist count.
+- Added an empty-result state for playlist search.
+- Preserved playlist playback, editing, reordering, and persistence.

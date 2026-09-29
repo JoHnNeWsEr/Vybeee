@@ -1505,6 +1505,13 @@ private fun PlaylistsScreen(songs: List<AudioSong>, vm: MusicLibraryViewModel, c
     var playlists by remember { mutableStateOf(vm.playlists()) }
     var showCreate by remember { mutableStateOf(false) }
     var selectedPlaylist by remember { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+
+    val filteredPlaylists = remember(playlists, query) {
+        val q = query.trim()
+        if (q.isBlank()) playlists
+        else playlists.filter { it.contains(q, ignoreCase = true) }
+    }
 
     if (selectedPlaylist != null) {
         PlaylistDetailScreen(
@@ -1524,8 +1531,40 @@ private fun PlaylistsScreen(songs: List<AudioSong>, vm: MusicLibraryViewModel, c
             IconButton(onClick = { showCreate = true }) { Icon(Icons.Default.Add, "Create playlist") }
         }
         Spacer(Modifier.height(12.dp))
-        LazyColumn {
-            items(playlists, key = { it }) { name ->
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search playlists") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    }
+                }
+            }
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (query.isBlank()) "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}"
+            else "${filteredPlaylists.size} matching ${if (filteredPlaylists.size == 1) "playlist" else "playlists"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        if (filteredPlaylists.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.QueueMusic, contentDescription = null, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(if (query.isBlank()) "No playlists yet" else "No matching playlists")
+                }
+            }
+        } else {
+            LazyColumn {
+                items(filteredPlaylists, key = { it }) { name ->
                 ListItem(
                     modifier = Modifier.clickable { selectedPlaylist = name },
                     headlineContent = { Text(name) },
@@ -1539,6 +1578,7 @@ private fun PlaylistsScreen(songs: List<AudioSong>, vm: MusicLibraryViewModel, c
                         }
                     }
                 )
+                }
             }
         }
     }
