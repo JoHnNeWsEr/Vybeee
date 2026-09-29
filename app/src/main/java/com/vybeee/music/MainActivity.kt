@@ -2833,7 +2833,18 @@ private fun QueueList(
     }
     val songById = remember(songs) { songs.associateBy { it.id } }
     val totalDuration = queueIds.sumOf { songById[it]?.duration ?: 0L }
-    val remainingDuration = queueIds.drop(currentIndex.coerceAtLeast(0)).sumOf { songById[it]?.duration ?: 0L }
+    val currentSongId = queueIds.getOrNull(currentIndex)
+    val currentSongDuration = currentSongId?.let { songById[it]?.duration ?: 0L } ?: 0L
+    val elapsedPosition = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
+    val currentSongRemaining = (currentSongDuration - elapsedPosition).coerceAtLeast(0L)
+    val followingDuration = queueIds.drop((currentIndex + 1).coerceAtLeast(0)).sumOf {
+        songById[it]?.duration ?: 0L
+    }
+    val remainingDuration = if (currentIndex >= 0) {
+        currentSongRemaining + followingDuration
+    } else {
+        totalDuration
+    }
 
     val listState = rememberLazyListState()
 
