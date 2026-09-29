@@ -106,3 +106,9 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Added confirmation before deleting a queue preset.
 - Preserved queue preset creation, loading, shuffle, rename, and local persistence.
 - Began the Phase 1–2 combined roadmap approach while keeping updates incremental and testable.
+
+
+## v1.27.0
+- Library search clear button and improved no-match state
+- Mini-player playback state now stays synchronized with Media3 player state
+- Version 1.27.0

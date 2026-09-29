@@ -589,7 +589,7 @@ private fun HomeScreen(
                 Card(Modifier.fillMaxWidth()) {
                     ListItem(
                         modifier = Modifier.clickable {
-                            if (controller?.isPlaying == true) controller.pause() else controller?.play()
+                            if (isPlaying) controller?.pause() else controller?.play()
                         },
                         headlineContent = { Text(nowPlaying!!.title, maxLines = 1, fontWeight = FontWeight.SemiBold) },
                         supportingContent = { Text("${nowPlaying!!.artist} • ${nowPlaying!!.album}", maxLines = 1) },
@@ -601,7 +601,7 @@ private fun HomeScreen(
                                 if (controller?.isPlaying == true) controller.pause() else controller?.play()
                             }) {
                                 Icon(
-                                    if (controller?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     "Play"
                                 )
                             }
@@ -741,12 +741,22 @@ private fun SongsScreen(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             singleLine = true,
             placeholder = { Text("Search songs, artists, albums, folders…") },
-            leadingIcon = { Icon(Icons.Default.Search, null) }
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { vm.setQuery("") }) {
+                        Icon(Icons.Default.Clear, "Clear search")
+                    }
+                }
+            }
         )
 
         if (songs.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No music found yet. Add local music and refresh.")
+                Text(
+                    if (query.isBlank()) "No music found yet. Add local music and refresh."
+                    else "No matching songs"
+                )
             }
         } else {
             LazyColumn {
@@ -2424,13 +2434,27 @@ private fun SettingsScreen(
             leadingContent = { Icon(Icons.Default.Lock, null) }
         )
         Spacer(Modifier.height(18.dp))
-        Text("Vybeee v1.14.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vybeee v1.27.0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text("Offline music player", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun MiniPlayer(song: AudioSong, controller: MediaController?, onOpen: () -> Unit) {
+    var isPlaying by remember { mutableStateOf(controller?.isPlaying == true) }
+
+    DisposableEffect(controller) {
+        val player = controller ?: return@DisposableEffect onDispose { }
+        isPlaying = player.isPlaying
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+
     Surface(
         modifier = Modifier.clickable(onClick = onOpen),
         shadowElevation = 8.dp,
@@ -2454,10 +2478,10 @@ private fun MiniPlayer(song: AudioSong, controller: MediaController?, onOpen: ()
                 Icon(Icons.Default.SkipPrevious, "Previous")
             }
             IconButton(onClick = {
-                if (controller?.isPlaying == true) controller.pause() else controller?.play()
+                if (isPlaying) controller?.pause() else controller?.play()
             }) {
                 Icon(
-                    if (controller?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     "Play"
                 )
             }
