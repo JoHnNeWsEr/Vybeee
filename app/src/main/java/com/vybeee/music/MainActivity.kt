@@ -150,6 +150,7 @@ private enum class Tab(val label: String, val icon: androidx.compose.ui.graphics
     GENRES("Genres", Icons.Default.MusicNote),
     HISTORY("History", Icons.Default.History),
     RECENTLY_ADDED("Recently Added", Icons.Default.NewReleases),
+    MOST_PLAYED("Most Played", Icons.Default.BarChart),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -317,6 +318,7 @@ private fun VybeeeApp(
                     Tab.GENRES -> GenresScreen(songs, controller, vm)
                     Tab.HISTORY -> HistoryScreen(songs, favorites, vm, controller)
                     Tab.RECENTLY_ADDED -> RecentlyAddedScreen(songs, favorites, vm, controller)
+                    Tab.MOST_PLAYED -> MostPlayedScreen(songs, favorites, vm, controller)
                     Tab.SETTINGS -> SettingsScreen(
                         vm,
                         themeMode,
@@ -615,7 +617,20 @@ private fun HomeScreen(
         if (mostPlayed.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(22.dp))
-                Text("Most played", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Most played",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { go(Tab.MOST_PLAYED) }) {
+                        Text("See all")
+                    }
+                }
             }
             items(mostPlayed, key = { "most_${it.id}" }) { song ->
                 SongRow(song, favorites.contains(song.id), { vm.toggleFavorite(song.id) }, vm.playCount(song.id)) {
@@ -1247,6 +1262,12 @@ private fun MoreScreen(go: (Tab) -> Unit) {
             leadingContent = { Icon(Icons.Default.NewReleases, null) }
         )
         ListItem(
+            modifier = Modifier.clickable { go(Tab.MOST_PLAYED) },
+            headlineContent = { Text("Most Played") },
+            supportingContent = { Text("See your most played songs") },
+            leadingContent = { Icon(Icons.Default.BarChart, null) }
+        )
+        ListItem(
             modifier = Modifier.clickable { go(Tab.SETTINGS) },
             headlineContent = { Text("Settings") },
             supportingContent = { Text("Library, appearance, and privacy") },
@@ -1255,6 +1276,122 @@ private fun MoreScreen(go: (Tab) -> Unit) {
     }
 }
 
+
+
+@Composable
+private fun MostPlayedScreen(
+    songs: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var highestFirst by rememberSaveable { mutableStateOf(true) }
+
+    val rankedSongs = remember(songs, query, highestFirst) {
+        val q = query.trim()
+        songs
+            .asSequence()
+            .filter {
+                q.isBlank() ||
+                    it.title.contains(q, ignoreCase = true) ||
+                    it.artist.contains(q, ignoreCase = true) ||
+                    it.album.contains(q, ignoreCase = true)
+            }
+            .sortedWith(
+                if (highestFirst) {
+                    compareByDescending<AudioSong> { vm.playCount(it.id) }
+                        .thenBy { it.title.lowercase() }
+                } else {
+                    compareBy<AudioSong> { vm.playCount(it.id) }
+                        .thenBy { it.title.lowercase() }
+                }
+            )
+            .filter { vm.playCount(it.id) > 0 }
+            .toList()
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Most Played",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (query.isBlank()) "${rankedSongs.size} played ${if (rankedSongs.size == 1) "song" else "songs"}"
+                    else "${rankedSongs.size} matching ${if (rankedSongs.size == 1) "song" else "songs"}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { highestFirst = !highestFirst }) {
+                Icon(
+                    if (highestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    if (highestFirst) "Most played first" else "Least played first"
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, "Search most played") },
+                placeholder = { Text("Search songs, artists, or albums") }
+            )
+            if (query.isNotBlank()) {
+                Spacer(Modifier.width(6.dp))
+                IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Clear, "Clear search")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (rankedSongs.isEmpty()) {
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (songs.none { vm.playCount(it.id) > 0 })
+                        "Play some music to build your most played list."
+                    else
+                        "No matching most played songs.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(rankedSongs, key = { "most_played_${it.id}" }) { song ->
+                    SongRow(
+                        song,
+                        favorites.contains(song.id),
+                        { vm.toggleFavorite(song.id) },
+                        vm.playCount(song.id)
+                    ) {
+                        playSong(controller, song, songs)
+                        vm.recordPlayed(song.id)
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun RecentlyAddedScreen(

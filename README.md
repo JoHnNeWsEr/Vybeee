@@ -92,7 +92,7 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Preserved playlist playback, editing, reordering, and persistence.
 
 
-## v1.22.0
+## v1.23.0
 - Added dedicated Favorites search by song title, artist, and album.
 - Added filtered Favorites count and empty states.
 - Added clear-search control and shuffle favorites.
