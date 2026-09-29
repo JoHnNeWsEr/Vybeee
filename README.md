@@ -97,3 +97,12 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Added filtered Favorites count and empty states.
 - Added clear-search control and shuffle favorites.
 - Preserved offline playback and existing library features.
+
+
+## v1.26.0
+- Added Queue Preset search by preset name.
+- Added matching-preset counts and empty/no-match states.
+- Added clear-search control.
+- Added confirmation before deleting a queue preset.
+- Preserved queue preset creation, loading, shuffle, rename, and local persistence.
+- Began the Phase 1–2 combined roadmap approach while keeping updates incremental and testable.

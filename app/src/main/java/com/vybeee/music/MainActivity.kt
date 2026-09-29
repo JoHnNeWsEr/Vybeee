@@ -1319,28 +1319,68 @@ private fun QueuePresetsScreen(
     controller: MediaController?
 ) {
     var presets by remember { mutableStateOf(vm.queuePresets()) }
+    var query by rememberSaveable { mutableStateOf("") }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val filteredPresets = remember(presets, query) {
+        val q = query.trim()
+        if (q.isBlank()) presets else presets.filter { it.contains(q, ignoreCase = true) }
+    }
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Queue Presets", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("${presets.size} saved ${if (presets.size == 1) "preset" else "presets"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (query.isBlank()) "${presets.size} saved ${if (presets.size == 1) "preset" else "presets"}"
+                    else "${filteredPresets.size} matching ${if (filteredPresets.size == 1) "preset" else "presets"}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Button(onClick = { showCreate = true }) { Text("New") }
         }
+
         Spacer(Modifier.height(12.dp))
-        if (presets.isEmpty()) {
-            Column(Modifier.fillMaxWidth().padding(top = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search queue presets") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Clear, "Clear search")
+                    }
+                }
+            }
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (filteredPresets.isEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().padding(top = 50.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(10.dp))
-                Text("No queue presets yet", style = MaterialTheme.typography.titleMedium)
-                Text("Save a queue from the player to reuse it later.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                Text(
+                    if (presets.isEmpty()) "No queue presets yet" else "No matching presets",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    if (presets.isEmpty()) "Save a queue from the player to reuse it later."
+                    else "Try a different preset name.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(presets, key = { it }) { name ->
+                items(filteredPresets, key = { it }) { name ->
                     val ids = vm.queuePresetSongs(name)
                     val count = ids.count { id -> songs.any { it.id == id } }
                     ListItem(
@@ -1365,7 +1405,7 @@ private fun QueuePresetsScreen(
                                     }
                                 }) { Icon(Icons.Default.Shuffle, "Shuffle preset") }
                                 IconButton(onClick = { renameTarget = name }) { Icon(Icons.Default.Edit, "Rename") }
-                                IconButton(onClick = { vm.deleteQueuePreset(name); presets = vm.queuePresets() }) { Icon(Icons.Default.Delete, "Delete") }
+                                IconButton(onClick = { deleteTarget = name }) { Icon(Icons.Default.Delete, "Delete") }
                             }
                         }
                     )
@@ -1393,6 +1433,21 @@ private fun QueuePresetsScreen(
                 presets = vm.queuePresets()
                 renameTarget = null
             }
+        )
+    }
+    deleteTarget?.let { name ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete queue preset?") },
+            text = { Text("Delete \"$name\"? The songs themselves will not be deleted.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteQueuePreset(name)
+                    presets = vm.queuePresets()
+                    deleteTarget = null
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }
         )
     }
 }
