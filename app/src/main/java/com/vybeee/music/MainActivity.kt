@@ -2843,7 +2843,12 @@ private fun QueueList(controller: MediaController?, currentIndex: Int) {
                         fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Normal
                     )
                 },
-                supportingContent = { Text(artist, maxLines = 1) },
+                supportingContent = {
+                    Text(
+                        if (index == currentIndex) "Now playing • $artist" else artist,
+                        maxLines = 1
+                    )
+                },
                 leadingContent = {
                     Icon(
                         if (index == currentIndex) Icons.Default.GraphicEq else Icons.Default.MusicNote,
@@ -2860,6 +2865,10 @@ private fun QueueList(controller: MediaController?, currentIndex: Int) {
                             enabled = index < count - 1,
                             onClick = { controller?.moveMediaItem(index, index + 1) }
                         ) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                        IconButton(
+                            enabled = index != currentIndex,
+                            onClick = { controller?.removeMediaItem(index) }
+                        ) { Icon(Icons.Default.Delete, "Remove from queue") }
                     }
                 }
             )
