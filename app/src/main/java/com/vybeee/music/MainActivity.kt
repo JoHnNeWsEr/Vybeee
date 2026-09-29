@@ -589,7 +589,7 @@ private fun HomeScreen(
                 Card(Modifier.fillMaxWidth()) {
                     ListItem(
                         modifier = Modifier.clickable {
-                            if (isPlaying) controller?.pause() else controller?.play()
+                            if (controller?.isPlaying == true) controller.pause() else controller?.play()
                         },
                         headlineContent = { Text(nowPlaying!!.title, maxLines = 1, fontWeight = FontWeight.SemiBold) },
                         supportingContent = { Text("${nowPlaying!!.artist} • ${nowPlaying!!.album}", maxLines = 1) },
@@ -601,7 +601,7 @@ private fun HomeScreen(
                                 if (controller?.isPlaying == true) controller.pause() else controller?.play()
                             }) {
                                 Icon(
-                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    if (controller?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     "Play"
                                 )
                             }
@@ -2478,10 +2478,10 @@ private fun MiniPlayer(song: AudioSong, controller: MediaController?, onOpen: ()
                 Icon(Icons.Default.SkipPrevious, "Previous")
             }
             IconButton(onClick = {
-                if (isPlaying) controller?.pause() else controller?.play()
+                if (controller?.isPlaying == true) controller.pause() else controller?.play()
             }) {
                 Icon(
-                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    if (controller?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
                     "Play"
                 )
             }
