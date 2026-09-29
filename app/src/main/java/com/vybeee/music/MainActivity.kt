@@ -2679,7 +2679,7 @@ private fun FullPlayerScreen(
                 }
             }
             Spacer(Modifier.height(6.dp))
-            QueueList(controller, playerState.index)
+            QueueList(controller, playerState.index, songs)
         } else {
             Text(
                 "No queue loaded",
@@ -2820,11 +2820,100 @@ private fun SleepTimerDialog(
 }
 
 @Composable
-private fun QueueList(controller: MediaController?, currentIndex: Int) {
+private fun QueueList(
+    controller: MediaController?,
+    currentIndex: Int,
+    songs: List<AudioSong>
+) {
     val count = controller?.mediaItemCount ?: 0
     if (count == 0) return
 
+    val queueIds = (0 until count).mapNotNull { index ->
+        controller?.getMediaItemAt(index)?.mediaId?.toLongOrNull()
+    }
+    val songById = remember(songs) { songs.associateBy { it.id } }
+    val totalDuration = queueIds.sumOf { songById[it]?.duration ?: 0L }
+    val remainingDuration = queueIds.drop(currentIndex.coerceAtLeast(0)).sumOf { songById[it]?.duration ?: 0L }
+
     val listState = rememberLazyListState()
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "${count} songs • ${formatDuration(totalDuration)} total",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "${formatDuration(remainingDuration)} remaining",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        LaunchedEffect(currentIndex, count) {
+            if (count > 0) {
+                listState.animateScrollToItem(currentIndex.coerceIn(0, count - 1))
+            }
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp),
+            contentPadding = PaddingValues(bottom = 20.dp)
+        ) {
+            items((0 until count).toList(), key = { it }) { index ->
+                val item = controller?.getMediaItemAt(index)
+                val title = item?.mediaMetadata?.title?.toString() ?: "Unknown title"
+                val artist = item?.mediaMetadata?.artist?.toString() ?: "Unknown artist"
+                ListItem(
+                    modifier = Modifier.clickable {
+                        controller?.seekTo(index, 0L)
+                        controller?.play()
+                    },
+                    headlineContent = {
+                        Text(
+                            title,
+                            maxLines = 1,
+                            fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            if (index == currentIndex) "Now playing • $artist" else artist,
+                            maxLines = 1
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            if (index == currentIndex) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+                            null
+                        )
+                    },
+                    trailingContent = {
+                        Row {
+                            IconButton(
+                                enabled = index > 0,
+                                onClick = { controller?.moveMediaItem(index, index - 1) }
+                            ) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                            IconButton(
+                                enabled = index < count - 1,
+                                onClick = { controller?.moveMediaItem(index, index + 1) }
+                            ) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                            IconButton(
+                                enabled = index != currentIndex,
+                                onClick = { controller?.removeMediaItem(index) }
+                            ) { Icon(Icons.Default.Delete, "Remove from queue") }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
 
     LaunchedEffect(currentIndex, count) {
         if (count > 0) {
