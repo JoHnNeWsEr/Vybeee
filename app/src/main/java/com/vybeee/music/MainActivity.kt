@@ -149,6 +149,7 @@ private enum class Tab(val label: String, val icon: androidx.compose.ui.graphics
     FOLDERS("Folders", Icons.Default.Folder),
     GENRES("Genres", Icons.Default.MusicNote),
     HISTORY("History", Icons.Default.History),
+    RECENTLY_ADDED("Recently Added", Icons.Default.NewReleases),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -315,6 +316,7 @@ private fun VybeeeApp(
                     Tab.FOLDERS -> FoldersScreen(songs, vm, controller)
                     Tab.GENRES -> GenresScreen(songs, controller, vm)
                     Tab.HISTORY -> HistoryScreen(songs, favorites, vm, controller)
+                    Tab.RECENTLY_ADDED -> RecentlyAddedScreen(songs, favorites, vm, controller)
                     Tab.SETTINGS -> SettingsScreen(
                         vm,
                         themeMode,
@@ -626,7 +628,20 @@ private fun HomeScreen(
         if (recentlyAdded.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(22.dp))
-                Text("Recently added", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Recently added",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { go(Tab.RECENTLY_ADDED) }) {
+                        Text("See all")
+                    }
+                }
             }
             items(recentlyAdded, key = { "added_${it.id}" }) { song ->
                 SongRow(song, favorites.contains(song.id), { vm.toggleFavorite(song.id) }, vm.playCount(song.id)) {
@@ -1226,6 +1241,12 @@ private fun MoreScreen(go: (Tab) -> Unit) {
             leadingContent = { Icon(Icons.Default.History, null) }
         )
         ListItem(
+            modifier = Modifier.clickable { go(Tab.RECENTLY_ADDED) },
+            headlineContent = { Text("Recently Added") },
+            supportingContent = { Text("Browse your newest local music") },
+            leadingContent = { Icon(Icons.Default.NewReleases, null) }
+        )
+        ListItem(
             modifier = Modifier.clickable { go(Tab.SETTINGS) },
             headlineContent = { Text("Settings") },
             supportingContent = { Text("Library, appearance, and privacy") },
@@ -1234,6 +1255,113 @@ private fun MoreScreen(go: (Tab) -> Unit) {
     }
 }
 
+
+@Composable
+private fun RecentlyAddedScreen(
+    songs: List<AudioSong>,
+    favorites: Set<Long>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var newestFirst by rememberSaveable { mutableStateOf(true) }
+
+    val filteredSongs = remember(songs, query, newestFirst) {
+        val q = query.trim()
+        songs
+            .asSequence()
+            .filter {
+                q.isBlank() ||
+                    it.title.contains(q, ignoreCase = true) ||
+                    it.artist.contains(q, ignoreCase = true) ||
+                    it.album.contains(q, ignoreCase = true)
+            }
+            .sortedWith(
+                if (newestFirst) compareByDescending<AudioSong> { it.dateAdded }
+                else compareBy<AudioSong> { it.dateAdded }
+            )
+            .toList()
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Recently Added",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (query.isBlank()) "${songs.size} songs in your local library"
+                    else "${filteredSongs.size} matching ${if (filteredSongs.size == 1) "song" else "songs"}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { newestFirst = !newestFirst }) {
+                Icon(
+                    if (newestFirst) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    if (newestFirst) "Newest first" else "Oldest first"
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, "Search recently added") },
+                placeholder = { Text("Search songs, artists, or albums") }
+            )
+            if (query.isNotBlank()) {
+                Spacer(Modifier.width(6.dp))
+                IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Clear, "Clear search")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        when {
+            songs.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.NewReleases, null, Modifier.size(48.dp))
+                        Spacer(Modifier.height(10.dp))
+                        Text("No music found.")
+                    }
+                }
+            }
+            filteredSongs.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No matching recently added songs.")
+                }
+            }
+            else -> {
+                LazyColumn {
+                    items(filteredSongs, key = { "recent_added_${it.id}" }) { song ->
+                        SongRow(
+                            song = song,
+                            favorite = favorites.contains(song.id),
+                            onFavorite = { vm.toggleFavorite(song.id) },
+                            playCount = vm.playCount(song.id)
+                        ) {
+                            playSong(controller, song, filteredSongs)
+                            vm.recordPlayed(song.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun HistoryScreen(
