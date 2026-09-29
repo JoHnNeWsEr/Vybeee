@@ -151,6 +151,7 @@ private enum class Tab(val label: String, val icon: androidx.compose.ui.graphics
     HISTORY("History", Icons.Default.History),
     RECENTLY_ADDED("Recently Added", Icons.Default.NewReleases),
     MOST_PLAYED("Most Played", Icons.Default.BarChart),
+    QUEUE_PRESETS("Queue Presets", Icons.Default.Bookmark),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -183,6 +184,7 @@ private fun VybeeeApp(
     var showSleepTimer by rememberSaveable { mutableStateOf(false) }
     var showClearQueue by rememberSaveable { mutableStateOf(false) }
     var showSaveQueue by rememberSaveable { mutableStateOf(false) }
+    var showSaveQueuePreset by rememberSaveable { mutableStateOf(false) }
     val songs by vm.songs.collectAsState()
     val query by vm.query.collectAsState()
     val favorites by vm.favorites.collectAsState()
@@ -277,6 +279,7 @@ private fun VybeeeApp(
                     onSleepTimerClick = { showSleepTimer = true },
                     onClearQueueClick = { showClearQueue = true },
                     onSaveQueueClick = { showSaveQueue = true },
+                    onSaveQueuePresetClick = { showSaveQueuePreset = true },
                     onClose = { showFullPlayer = false }
                 )
             } else {
@@ -321,6 +324,7 @@ private fun VybeeeApp(
                     Tab.HISTORY -> HistoryScreen(songs, favorites, vm, controller)
                     Tab.RECENTLY_ADDED -> RecentlyAddedScreen(songs, favorites, vm, controller)
                     Tab.MOST_PLAYED -> MostPlayedScreen(songs, favorites, vm, controller)
+                    Tab.QUEUE_PRESETS -> QueuePresetsScreen(songs, vm, controller)
                     Tab.SETTINGS -> SettingsScreen(
                         vm,
                         themeMode,
@@ -333,6 +337,16 @@ private fun VybeeeApp(
                 }
             }
         }
+    }
+    if (showSaveQueuePreset) {
+        SaveQueuePresetDialog(
+            onDismiss = { showSaveQueuePreset = false },
+            onSave = { name ->
+                val ids = queueIds(controller)
+                if (ids.isNotEmpty()) vm.saveQueuePreset(name, ids)
+                showSaveQueuePreset = false
+            }
+        )
     }
     if (showSleepTimer) {
         SleepTimerDialog(
@@ -1282,6 +1296,12 @@ private fun MoreScreen(go: (Tab) -> Unit) {
             leadingContent = { Icon(Icons.Default.BarChart, null) }
         )
         ListItem(
+            modifier = Modifier.clickable { go(Tab.QUEUE_PRESETS) },
+            headlineContent = { Text("Queue Presets") },
+            supportingContent = { Text("Save and reuse favorite queue setups") },
+            leadingContent = { Icon(Icons.Default.Bookmark, null) }
+        )
+        ListItem(
             modifier = Modifier.clickable { go(Tab.SETTINGS) },
             headlineContent = { Text("Settings") },
             supportingContent = { Text("Library, appearance, and privacy") },
@@ -1291,6 +1311,107 @@ private fun MoreScreen(go: (Tab) -> Unit) {
 }
 
 
+
+@Composable
+private fun QueuePresetsScreen(
+    songs: List<AudioSong>,
+    vm: MusicLibraryViewModel,
+    controller: MediaController?
+) {
+    var presets by remember { mutableStateOf(vm.queuePresets()) }
+    var showCreate by rememberSaveable { mutableStateOf(false) }
+    var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
+
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Queue Presets", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("${presets.size} saved ${if (presets.size == 1) "preset" else "presets"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick = { showCreate = true }) { Text("New") }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (presets.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(top = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(10.dp))
+                Text("No queue presets yet", style = MaterialTheme.typography.titleMedium)
+                Text("Save a queue from the player to reuse it later.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(presets, key = { it }) { name ->
+                    val ids = vm.queuePresetSongs(name)
+                    val count = ids.count { id -> songs.any { it.id == id } }
+                    ListItem(
+                        modifier = Modifier.clickable {
+                            val playable = ids.mapNotNull { id -> songs.find { it.id == id } }
+                            if (playable.isNotEmpty()) {
+                                playSong(controller, playable.first(), playable)
+                                vm.recordPlayed(playable.first().id)
+                            }
+                        },
+                        headlineContent = { Text(name) },
+                        supportingContent = { Text("$count ${if (count == 1) "song" else "songs"}") },
+                        leadingContent = { Icon(Icons.Default.Bookmark, null) },
+                        trailingContent = {
+                            Row {
+                                IconButton(onClick = {
+                                    val playable = ids.mapNotNull { id -> songs.find { it.id == id } }
+                                    if (playable.isNotEmpty()) {
+                                        val shuffled = playable.shuffled()
+                                        playSong(controller, shuffled.first(), shuffled)
+                                        vm.recordPlayed(shuffled.first().id)
+                                    }
+                                }) { Icon(Icons.Default.Shuffle, "Shuffle preset") }
+                                IconButton(onClick = { renameTarget = name }) { Icon(Icons.Default.Edit, "Rename") }
+                                IconButton(onClick = { vm.deleteQueuePreset(name); presets = vm.queuePresets() }) { Icon(Icons.Default.Delete, "Delete") }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showCreate) {
+        SaveQueuePresetDialog(
+            onDismiss = { showCreate = false },
+            onSave = { name ->
+                val ids = controller?.let { queueIds(it) }.orEmpty()
+                if (ids.isNotEmpty()) { vm.saveQueuePreset(name, ids); presets = vm.queuePresets() }
+                showCreate = false
+            }
+        )
+    }
+    renameTarget?.let { old ->
+        RenameQueuePresetDialog(
+            current = old,
+            onDismiss = { renameTarget = null },
+            onRename = { newName ->
+                vm.renameQueuePreset(old, newName)
+                presets = vm.queuePresets()
+                renameTarget = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun RenameQueuePresetDialog(
+    current: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var name by rememberSaveable(current) { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename queue preset") },
+        text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Preset name") }) },
+        confirmButton = { TextButton(onClick = { onRename(name.trim()) }, enabled = name.trim().isNotEmpty()) { Text("Rename") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
 
 @Composable
 private fun MostPlayedScreen(
@@ -2352,6 +2473,7 @@ private fun FullPlayerScreen(
     onSleepTimerClick: () -> Unit,
     onClearQueueClick: () -> Unit,
     onSaveQueueClick: () -> Unit,
+    onSaveQueuePresetClick: () -> Unit,
     onClose: () -> Unit
 ) {
     val favorite = vm.favorites.collectAsState().value.contains(song.id)
@@ -2469,6 +2591,9 @@ private fun FullPlayerScreen(
                 TextButton(onClick = onSaveQueueClick) {
                     Text("Save as playlist")
                 }
+                TextButton(onClick = onSaveQueuePresetClick) {
+                    Text("Save preset")
+                }
                 TextButton(onClick = onClearQueueClick) {
                     Text("Clear queue")
                 }
@@ -2482,6 +2607,38 @@ private fun FullPlayerScreen(
             )
         }
     }
+}
+
+private fun queueIds(controller: MediaController?): List<Long> {
+    if (controller == null) return emptyList()
+    return (0 until controller.mediaItemCount).mapNotNull { index ->
+        controller.getMediaItemAt(index).mediaId.toLongOrNull()
+    }
+}
+
+@Composable
+private fun SaveQueuePresetDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("My Queue") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save queue preset") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text("Preset name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(name.trim()) }, enabled = name.trim().isNotEmpty()) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

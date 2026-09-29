@@ -121,6 +121,53 @@ class LibraryStore(context: Context) {
         prefs.edit().putString("playlist_$name", songs.joinToString(",")).apply()
     }
 
+    fun queuePresets(): List<String> =
+        prefs.getStringSet("queue_presets", emptySet())
+            ?.toList()?.sorted() ?: emptyList()
+
+    fun createQueuePreset(name: String, ids: List<Long>): String {
+        val base = name.trim().ifBlank { "My Queue" }
+        val existing = queuePresets().toSet()
+        var clean = base
+        var number = 2
+        while (clean in existing) {
+            clean = "$base $number"
+            number++
+        }
+        val names = existing.toMutableSet()
+        names.add(clean)
+        prefs.edit()
+            .putStringSet("queue_presets", names)
+            .putString("queue_preset_$clean", ids.distinct().joinToString(","))
+            .apply()
+        return clean
+    }
+
+    fun queuePresetSongs(name: String): List<Long> =
+        prefs.getString("queue_preset_$name", "")
+            ?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
+
+    fun renameQueuePreset(oldName: String, newName: String): Boolean {
+        val clean = newName.trim()
+        if (clean.isBlank() || clean == oldName) return false
+        val names = queuePresets().toMutableSet()
+        if (clean in names) return false
+        val ids = queuePresetSongs(oldName)
+        names.remove(oldName); names.add(clean)
+        prefs.edit().putStringSet("queue_presets", names)
+            .remove("queue_preset_$oldName")
+            .putString("queue_preset_$clean", ids.joinToString(","))
+            .apply()
+        return true
+    }
+
+    fun deleteQueuePreset(name: String) {
+        val names = queuePresets().toMutableSet()
+        names.remove(name)
+        prefs.edit().putStringSet("queue_presets", names)
+            .remove("queue_preset_$name").apply()
+    }
+
     fun clearPlaylist(name: String) {
         prefs.edit().putString("playlist_$name", "").apply()
     }
