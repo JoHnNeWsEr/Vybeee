@@ -19,6 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -2823,8 +2824,17 @@ private fun QueueList(controller: MediaController?, currentIndex: Int) {
     val count = controller?.mediaItemCount ?: 0
     if (count == 0) return
 
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(currentIndex, count) {
+        if (count > 0) {
+            listState.animateScrollToItem(currentIndex.coerceIn(0, count - 1))
+        }
+    }
+
     LazyColumn(
-        Modifier.fillMaxWidth().heightIn(max = 260.dp),
+        state = listState,
+        modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp),
         contentPadding = PaddingValues(bottom = 20.dp)
     ) {
         items((0 until count).toList(), key = { it }) { index ->

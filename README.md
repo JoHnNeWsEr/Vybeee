@@ -119,3 +119,8 @@ GitHub Actions builds a release APK using a persistent private keystore stored i
 - Current queue item clearly labeled as now playing.
 - Remove non-current songs directly from the queue.
 - Existing queue reorder, shuffle, save, preset, and playback behavior preserved.
+
+## 1.29.0 — Queue Focus Polish
+- Queue automatically scrolls to the currently playing song when playback changes.
+- Current queue position stays visible without manual scrolling.
+- Existing queue reorder, remove, shuffle, save, and playback behavior is preserved.
