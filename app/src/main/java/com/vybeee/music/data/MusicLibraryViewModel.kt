@@ -161,6 +161,19 @@ class MusicLibraryViewModel(application: Application) : AndroidViewModel(applica
     fun playlists(): List<String> = store.playlists()
     fun playlistSongs(name: String): List<Long> = store.playlistSongs(name)
     fun createPlaylist(name: String) { store.createPlaylist(name) }
+    fun saveQueueAsPlaylist(requestedName: String, ids: List<Long>): String {
+        val base = requestedName.trim().ifBlank { "My Queue" }
+        val existing = playlists().toSet()
+        var name = base
+        var number = 2
+        while (name in existing) {
+            name = "$base $number"
+            number++
+        }
+        store.createPlaylist(name)
+        ids.distinct().forEach { store.togglePlaylistSong(name, it) }
+        return name
+    }
     fun deletePlaylist(name: String) { store.deletePlaylist(name) }
     fun renamePlaylist(oldName: String, newName: String): Boolean = store.renamePlaylist(oldName, newName)
     fun togglePlaylistSong(name: String, id: Long) { store.togglePlaylistSong(name, id) }

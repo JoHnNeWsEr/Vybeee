@@ -182,6 +182,7 @@ private fun VybeeeApp(
     var sleepTimerEnd by rememberSaveable { mutableStateOf<Long?>(null) }
     var showSleepTimer by rememberSaveable { mutableStateOf(false) }
     var showClearQueue by rememberSaveable { mutableStateOf(false) }
+    var showSaveQueue by rememberSaveable { mutableStateOf(false) }
     val songs by vm.songs.collectAsState()
     val query by vm.query.collectAsState()
     val favorites by vm.favorites.collectAsState()
@@ -275,6 +276,7 @@ private fun VybeeeApp(
                     sleepTimerEnd = sleepTimerEnd,
                     onSleepTimerClick = { showSleepTimer = true },
                     onClearQueueClick = { showClearQueue = true },
+                    onSaveQueueClick = { showSaveQueue = true },
                     onClose = { showFullPlayer = false }
                 )
             } else {
@@ -343,6 +345,18 @@ private fun VybeeeApp(
             onCancel = {
                 sleepTimerEnd = null
                 showSleepTimer = false
+            }
+        )
+    }
+    if (showSaveQueue) {
+        SaveQueueDialog(
+            onDismiss = { showSaveQueue = false },
+            onSave = { name ->
+                val ids = (0 until (controller?.mediaItemCount ?: 0)).mapNotNull { index ->
+                    controller?.getMediaItemAt(index)?.mediaId?.toLongOrNull()
+                }
+                vm.saveQueueAsPlaylist(name, ids)
+                showSaveQueue = false
             }
         )
     }
@@ -2337,6 +2351,7 @@ private fun FullPlayerScreen(
     sleepTimerEnd: Long?,
     onSleepTimerClick: () -> Unit,
     onClearQueueClick: () -> Unit,
+    onSaveQueueClick: () -> Unit,
     onClose: () -> Unit
 ) {
     val favorite = vm.favorites.collectAsState().value.contains(song.id)
@@ -2451,6 +2466,9 @@ private fun FullPlayerScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.weight(1f))
+                TextButton(onClick = onSaveQueueClick) {
+                    Text("Save as playlist")
+                }
                 TextButton(onClick = onClearQueueClick) {
                     Text("Clear queue")
                 }
@@ -2464,6 +2482,36 @@ private fun FullPlayerScreen(
             )
         }
     }
+}
+
+@Composable
+private fun SaveQueueDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("My Queue") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save queue as playlist") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text("Playlist name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name.trim()) },
+                enabled = name.trim().isNotEmpty()
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
